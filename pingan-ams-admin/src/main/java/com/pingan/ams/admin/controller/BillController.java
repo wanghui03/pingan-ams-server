@@ -1,6 +1,7 @@
 package com.pingan.ams.admin.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.pingan.ams.common.annotation.Log;
 import com.pingan.ams.common.result.Result;
 import com.pingan.ams.common.utils.SecurityUtils;
 import com.pingan.ams.model.dto.BillDTO;
@@ -25,6 +26,7 @@ public class BillController {
 
     private final BillService billService;
 
+    @Log(module = "账单管理", operation = "创建", description = "创建新账单")
     @Operation(summary = "创建账单")
     @PostMapping
     public Result<Long> createBill(@Valid @RequestBody BillDTO billDTO) {
@@ -54,6 +56,7 @@ public class BillController {
         return Result.success(pageResult);
     }
 
+    @Log(module = "账单管理", operation = "确认收款", description = "标记账单已支付")
     @Operation(summary = "标记账单已支付")
     @PutMapping("/{billId}/pay")
     public Result<Void> markAsPaid(
@@ -65,6 +68,7 @@ public class BillController {
         return Result.success();
     }
 
+    @Log(module = "账单管理", operation = "取消", description = "取消账单")
     @Operation(summary = "取消账单")
     @PutMapping("/{billId}/cancel")
     public Result<Void> cancelBill(@PathVariable Long billId, @RequestParam(required = false) String reason) {
@@ -81,6 +85,7 @@ public class BillController {
         return Result.success(amount);
     }
 
+    @Log(module = "账单管理", operation = "生成账单", description = "根据合同自动生成租金账单")
     @Operation(summary = "根据合同自动生成租金账单")
     @PostMapping("/generate-rent-bills")
     public Result<Void> generateRentBills(@RequestParam Long contractId) {

@@ -1,6 +1,7 @@
 package com.pingan.ams.admin.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.pingan.ams.common.annotation.Log;
 import com.pingan.ams.common.result.Result;
 import com.pingan.ams.common.utils.SecurityUtils;
 import com.pingan.ams.model.dto.ContractDTO;
@@ -23,6 +24,7 @@ public class ContractController {
 
     private final ContractService contractService;
 
+    @Log(module = "合同管理", operation = "创建", description = "创建新合同")
     @Operation(summary = "创建合同")
     @PostMapping
     public Result<Long> createContract(@Valid @RequestBody ContractDTO contractDTO) {
@@ -31,6 +33,7 @@ public class ContractController {
         return Result.success(contractId);
     }
 
+    @Log(module = "合同管理", operation = "更新", description = "更新合同信息")
     @Operation(summary = "更新合同")
     @PutMapping("/{contractId}")
     public Result<Void> updateContract(@PathVariable Long contractId, @Valid @RequestBody ContractDTO contractDTO) {
@@ -60,11 +63,39 @@ public class ContractController {
         return Result.success(pageResult);
     }
 
+    @Log(module = "合同管理", operation = "终止", description = "终止合同")
     @Operation(summary = "终止合同")
     @PutMapping("/{contractId}/terminate")
     public Result<Void> terminateContract(@PathVariable Long contractId, @RequestParam(required = false) String reason) {
         Long tenantId = SecurityUtils.getCurrentTenantId();
         contractService.terminateContract(tenantId, contractId, reason);
+        return Result.success();
+    }
+
+    @Log(module = "合同管理", operation = "提交审核", description = "合同提交审核")
+    @Operation(summary = "提交审核")
+    @PutMapping("/{contractId}/submit")
+    public Result<Void> submitContract(@PathVariable Long contractId) {
+        Long tenantId = SecurityUtils.getCurrentTenantId();
+        contractService.submitContract(tenantId, contractId);
+        return Result.success();
+    }
+
+    @Log(module = "合同管理", operation = "审核通过", description = "合同审核通过")
+    @Operation(summary = "审核通过")
+    @PutMapping("/{contractId}/approve")
+    public Result<Void> approveContract(@PathVariable Long contractId) {
+        Long tenantId = SecurityUtils.getCurrentTenantId();
+        contractService.approveContract(tenantId, contractId);
+        return Result.success();
+    }
+
+    @Log(module = "合同管理", operation = "审核驳回", description = "合同审核驳回")
+    @Operation(summary = "审核驳回")
+    @PutMapping("/{contractId}/reject")
+    public Result<Void> rejectContract(@PathVariable Long contractId, @RequestParam(required = false) String reason) {
+        Long tenantId = SecurityUtils.getCurrentTenantId();
+        contractService.rejectContract(tenantId, contractId, reason);
         return Result.success();
     }
 }

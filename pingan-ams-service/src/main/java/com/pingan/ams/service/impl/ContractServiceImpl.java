@@ -35,6 +35,7 @@ public class ContractServiceImpl extends ServiceImpl<ContractMapper, Contract> i
     private final UserMapper userMapper;
     private final RoomMapper roomMapper;
     private final BuildingMapper buildingMapper;
+    private final BillMapper billMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -154,6 +155,133 @@ public class ContractServiceImpl extends ServiceImpl<ContractMapper, Contract> i
                 .eq(Contract::getUserId, userId)
                 .eq(Contract::getStatus, ContractStatus.ACTIVE)
                 .last("LIMIT 1"));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void submitContract(Long tenantId, Long contractId) {
+        Contract contract = this.getContractByIdAndTenantId(contractId, tenantId);
+        
+        if (contract.getStatus() != ContractStatus.DRAFT) {
+            throw new BusinessException("只有草稿状态的合同可以提交审核");
+        }
+
+        contract.setStatus(ContractStatus.PENDING);
+        this.updateById(contract);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void approveContract(Long tenantId, Long contractId) {
+        Contract contract = this.getContractByIdAndTenantId(contractId, tenantId);
+        
+        if (contract.getStatus() != ContractStatus.PENDING) {
+            throw new BusinessException("只有待审核状态的合同可以审核通过");
+        }
+
+        contract.setStatus(ContractStatus.ACTIVE);
+        this.updateById(contract);
+
+        // 更新房间状态为已入住
+        Room room = roomMapper.selectById(contract.getRoomId());
+        if (room != null) {
+            room.setStatus(RoomStatus.OCCUPIED);
+            roomMapper.updateById(room);
+        }
+
+        // 生成首期账单
+        generateFirstBill(contract);
+    }
+
+    /**
+     * 生成首期账单（合同审核通过时调用）
+     */
+    private void generateFirstBill(Contract contract) {
+        int monthsPerBill = getMonthsPerBill(contract.getPaymentMethod());
+
+        Bill bill = new Bill();
+        bill.setTenantId(contract.getTenantId());
+        bill.setBillNo(generateBillNo());
+        bill.setContractId(contract.getId());
+        bill.setUserId(contract.getUserId());
+        bill.setRoomId(contract.getRoomId());
+        bill.setBillType(1); // 租金
+        bill.setStatus(BillStatus.UNPAID);
+        bill.setAmount(contract.getMonthlyRent().multiply(BigDecimal.valueOf(monthsPerBill)));
+        bill.setStartDate(contract.getStartDate());
+        bill.setEndDate(contract.getStartDate().plusMonths(monthsPerBill));
+        bill.setBillDate(LocalDate.now());
+        bill.setDueDate(contract.getStartDate().plusDays(5)); // 5天内支付
+        bill.setPaidAmount(BigDecimal.ZERO);
+
+        // 保存到数据库（需要通过 ContractService 调用 BillService）
+        // 这里直接操作 mapper 避免循环依赖
+        billMapper.insert(bill);
+
+        log.info("合同 {} 审核通过，已生成首期账单 {}", contract.getContractNo(), bill.getBillNo());
+    }
+
+    private int getMonthsPerBill(Integer paymentMethod) {
+        return switch (paymentMethod) {
+            case 1 -> 1;  // 月付
+            case 2 -> 3;  // 季付
+            case 3 -> 6;  // 半年付
+            case 4 -> 12; // 年付
+            default -> 1;
+        };
+    }
+
+    private String generateBillNo() {
+        String prefix = "BL";
+        String date = LocalDate.now().toString().replace("-", "");
+        String random = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        return prefix + date + random;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void rejectContract(Long tenantId, Long contractId, String reason) {
+        Contract contract = this.getContractByIdAndTenantId(contractId, tenantId);
+        
+        if (contract.getStatus() != ContractStatus.PENDING) {
+            throw new BusinessException("只有待审核状态的合同可以审核驳回");
+        }
+
+        contract.setStatus(ContractStatus.DRAFT);
+        contract.setRemark(reason);
+        this.updateById(contract);
+
+        // 更新房间状态为空置
+        Room room = roomMapper.selectById(contract.getRoomId());
+        if (room != null) {
+            room.setStatus(RoomStatus.VACANT);
+            roomMapper.updateById(room);
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void processExpiredContracts() {
+        LocalDate today = LocalDate.now();
+        
+        // 查找所有生效中但已过期的合同
+        List<Contract> expiredContracts = this.list(new LambdaQueryWrapper<Contract>()
+                .eq(Contract::getStatus, ContractStatus.ACTIVE)
+                .lt(Contract::getEndDate, today));
+
+        for (Contract contract : expiredContracts) {
+            contract.setStatus(ContractStatus.EXPIRED);
+            this.updateById(contract);
+
+            // 更新房间状态为空置
+            Room room = roomMapper.selectById(contract.getRoomId());
+            if (room != null) {
+                room.setStatus(RoomStatus.VACANT);
+                roomMapper.updateById(room);
+            }
+
+            log.info("合同 {} 已到期，状态已更新", contract.getContractNo());
+        }
     }
 
     private Contract getContractByIdAndTenantId(Long contractId, Long tenantId) {

@@ -1,6 +1,7 @@
 package com.pingan.ams.admin.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.pingan.ams.common.annotation.Log;
 import com.pingan.ams.common.result.Result;
 import com.pingan.ams.common.utils.SecurityUtils;
 import com.pingan.ams.model.dto.BuildingDTO;
@@ -25,6 +26,7 @@ public class BuildingController {
 
     private final BuildingService buildingService;
 
+    @Log(module = "楼栋管理", operation = "创建", description = "创建新楼栋")
     @Operation(summary = "创建楼栋")
     @PostMapping
     public Result<Long> createBuilding(@Valid @RequestBody BuildingDTO buildingDTO) {
@@ -33,6 +35,7 @@ public class BuildingController {
         return Result.success(buildingId);
     }
 
+    @Log(module = "楼栋管理", operation = "更新", description = "更新楼栋信息")
     @Operation(summary = "更新楼栋")
     @PutMapping("/{buildingId}")
     public Result<Void> updateBuilding(@PathVariable Long buildingId, @Valid @RequestBody BuildingDTO buildingDTO) {
@@ -67,6 +70,7 @@ public class BuildingController {
         return Result.success(list);
     }
 
+    @Log(module = "楼栋管理", operation = "删除", description = "删除楼栋")
     @Operation(summary = "删除楼栋")
     @DeleteMapping("/{buildingId}")
     public Result<Void> deleteBuilding(@PathVariable Long buildingId) {

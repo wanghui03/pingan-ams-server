@@ -13,6 +13,9 @@ public class WorkOrderDTO {
     @NotNull(message = "房间ID不能为空")
     private Long roomId;
 
+    @NotNull(message = "租客ID不能为空")
+    private Long userId;
+
     /**
      * 工单类型：1-报修 2-投诉 3-咨询 4-其他
      */

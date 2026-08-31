@@ -34,8 +34,10 @@ DROP TABLE IF EXISTS ams_user;
 CREATE TABLE ams_user (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '用户ID',
     tenant_id BIGINT NOT NULL COMMENT '租户ID',
-    openid VARCHAR(100) COMMENT '微信OpenID',
+    openid VARCHAR(100) COMMENT '微信OpenID（小程序登录）',
     unionid VARCHAR(100) COMMENT '微信UnionID',
+    username VARCHAR(50) COMMENT '登录账号（PC端登录）',
+    password VARCHAR(100) COMMENT '登录密码（BCrypt加密）',
     phone VARCHAR(20) COMMENT '手机号',
     nickname VARCHAR(50) COMMENT '昵称',
     avatar VARCHAR(500) COMMENT '头像',
@@ -52,6 +54,7 @@ CREATE TABLE ams_user (
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     deleted TINYINT NOT NULL DEFAULT 0 COMMENT '删除标记：0-未删除 1-已删除',
     UNIQUE INDEX uk_openid (openid),
+    UNIQUE INDEX uk_username_tenant (username, tenant_id),
     INDEX idx_tenant_id (tenant_id),
     INDEX idx_phone (phone)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
@@ -199,7 +202,73 @@ CREATE TABLE ams_work_order (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='工单表';
 
 -- ========================================
+-- 操作日志表
+-- ========================================
+DROP TABLE IF EXISTS ams_operation_log;
+CREATE TABLE ams_operation_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '日志ID',
+    tenant_id BIGINT COMMENT '租户ID',
+    user_id BIGINT COMMENT '用户ID',
+    username VARCHAR(50) COMMENT '用户名',
+    module VARCHAR(50) COMMENT '操作模块',
+    operation VARCHAR(50) COMMENT '操作类型',
+    description VARCHAR(200) COMMENT '操作描述',
+    method VARCHAR(10) COMMENT '请求方法',
+    params TEXT COMMENT '请求参数',
+    result VARCHAR(500) COMMENT '返回结果',
+    ip VARCHAR(50) COMMENT 'IP地址',
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '操作状态：0-失败 1-成功',
+    error_msg TEXT COMMENT '错误信息',
+    operate_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+    cost_time BIGINT COMMENT '耗时（毫秒）',
+    INDEX idx_tenant_id (tenant_id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_operate_time (operate_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志表';
+
+-- ========================================
+-- 系统配置表
+-- ========================================
+DROP TABLE IF EXISTS ams_sys_config;
+CREATE TABLE ams_sys_config (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '配置ID',
+    tenant_id BIGINT COMMENT '租户ID（NULL表示全局配置）',
+    config_key VARCHAR(100) NOT NULL COMMENT '配置键',
+    config_value VARCHAR(500) NOT NULL COMMENT '配置值',
+    description VARCHAR(200) COMMENT '配置描述',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_tenant_id (tenant_id),
+    UNIQUE INDEX uk_config_key_tenant (config_key, tenant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统配置表';
+
+-- ========================================
+-- 插入默认系统配置
+-- ========================================
+INSERT INTO ams_sys_config (config_key, config_value, description) VALUES
+('face_auth_enabled', 'false', '是否开启人脸识别实名认证'),
+('contract_auto_expire', 'true', '合同到期自动处理'),
+('bill_overdue_days', '7', '账单逾期天数阈值'),
+('system_name', '平安公寓管理系统', '系统名称');
+
+-- ========================================
 -- 插入默认租户
 -- ========================================
 INSERT INTO ams_tenant (name, type, contact_person, contact_phone, status) 
 VALUES ('默认租户', 1, '管理员', '13800138000', 1);
+
+-- ========================================
+-- 插入超级管理员账号（平台管理员）
+-- 账号: superadmin  密码: admin123
+-- userType: 0-超级管理员
+-- ========================================
+INSERT INTO ams_user (tenant_id, username, password, phone, nickname, user_type, status, auth_status) 
+VALUES (1, 'superadmin', '$2a$10$PiSJH9sbYDGh5nQH/.Gua.HdMWhaaR1BMc52NLrt.DseEV0xx.eyu', '13900000000', '超级管理员', 0, 1, 1);
+
+-- ========================================
+-- 插入默认租户管理员账号
+-- 账号: admin  密码: admin123
+-- userType: 3-租户管理员
+-- ========================================
+INSERT INTO ams_user (tenant_id, username, password, phone, nickname, user_type, status, auth_status) 
+VALUES (1, 'admin', '$2a$10$PiSJH9sbYDGh5nQH/.Gua.HdMWhaaR1BMc52NLrt.DseEV0xx.eyu', '13800138000', '系统管理员', 3, 1, 1);

@@ -5,12 +5,15 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.pingan.ams.common.exception.BusinessException;
 import com.pingan.ams.common.result.ResultCode;
+import com.pingan.ams.mapper.BuildingMapper;
 import com.pingan.ams.mapper.RoomMapper;
 import com.pingan.ams.model.dto.RoomDTO;
+import com.pingan.ams.model.entity.Building;
 import com.pingan.ams.model.entity.Room;
 import com.pingan.ams.model.enums.RoomStatus;
 import com.pingan.ams.model.vo.RoomVO;
 import com.pingan.ams.service.RoomService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -23,7 +26,10 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements RoomService {
+
+    private final BuildingMapper buildingMapper;
 
     @Override
     public Long createRoom(Long tenantId, RoomDTO roomDTO) {
@@ -106,6 +112,14 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
     private RoomVO convertToVO(Room room) {
         RoomVO vo = new RoomVO();
         BeanUtils.copyProperties(room, vo);
+        
+        // 查询楼栋名称
+        if (room.getBuildingId() != null) {
+            Building building = buildingMapper.selectById(room.getBuildingId());
+            if (building != null) {
+                vo.setBuildingName(building.getName());
+            }
+        }
         
         // 设置枚举描述
         if (room.getRoomType() != null) {

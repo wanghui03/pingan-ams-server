@@ -45,4 +45,24 @@ public interface ContractService extends IService<Contract> {
      * 根据租客ID获取生效合同
      */
     Contract getActiveContractByUserId(Long userId);
+
+    /**
+     * 提交审核
+     */
+    void submitContract(Long tenantId, Long contractId);
+
+    /**
+     * 审核通过
+     */
+    void approveContract(Long tenantId, Long contractId);
+
+    /**
+     * 审核驳回
+     */
+    void rejectContract(Long tenantId, Long contractId, String reason);
+
+    /**
+     * 自动处理到期合同
+     */
+    void processExpiredContracts();
 }

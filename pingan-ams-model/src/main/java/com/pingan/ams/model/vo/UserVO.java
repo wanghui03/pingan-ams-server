@@ -21,6 +21,11 @@ public class UserVO {
     private Long tenantId;
 
     /**
+     * 登录账号
+     */
+    private String username;
+
+    /**
      * 手机号
      */
     private String phone;
@@ -36,9 +41,14 @@ public class UserVO {
     private String avatar;
 
     /**
-     * 用户类型：1-租客 2-员工 3-管理员
+     * 用户类型：0-超级管理员 1-租客 2-员工 3-管理员
      */
     private Integer userType;
+
+    /**
+     * 用户类型描述
+     */
+    private String userTypeDesc;
 
     /**
      * 真实姓名
@@ -59,6 +69,11 @@ public class UserVO {
      * 状态：0-禁用 1-启用
      */
     private Integer status;
+
+    /**
+     * 状态描述
+     */
+    private String statusDesc;
 
     /**
      * 最后登录时间

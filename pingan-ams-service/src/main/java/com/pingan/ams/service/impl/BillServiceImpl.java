@@ -110,6 +110,75 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
         bill.setTransactionNo(transactionNo);
 
         this.updateById(bill);
+
+        // 支付完成后，生成下一期账单
+        generateNextBill(bill);
+    }
+
+    /**
+     * 根据已支付账单生成下一期账单
+     */
+    private void generateNextBill(Bill paidBill) {
+        // 只处理租金账单
+        if (paidBill.getBillType() != 1) {
+            return;
+        }
+
+        // 获取合同信息
+        Contract contract = contractMapper.selectById(paidBill.getContractId());
+        if (contract == null || contract.getStatus() != com.pingan.ams.model.enums.ContractStatus.ACTIVE) {
+            return;
+        }
+
+        // 计算下一期账单的日期
+        LocalDate nextStartDate = paidBill.getEndDate();
+        if (!nextStartDate.isBefore(contract.getEndDate())) {
+            // 合同已到期，不再生成账单
+            return;
+        }
+
+        // 检查是否已存在下一期账单
+        LambdaQueryWrapper<Bill> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Bill::getContractId, contract.getId())
+               .eq(Bill::getBillType, 1)
+               .eq(Bill::getStartDate, nextStartDate);
+        if (this.count(wrapper) > 0) {
+            return;
+        }
+
+        int monthsPerBill = getMonthsPerBill(contract.getPaymentMethod());
+        LocalDate nextEndDate = nextStartDate.plusMonths(monthsPerBill);
+        if (nextEndDate.isAfter(contract.getEndDate())) {
+            nextEndDate = contract.getEndDate();
+        }
+
+        Bill nextBill = new Bill();
+        nextBill.setTenantId(contract.getTenantId());
+        nextBill.setBillNo(generateBillNo());
+        nextBill.setContractId(contract.getId());
+        nextBill.setUserId(contract.getUserId());
+        nextBill.setRoomId(contract.getRoomId());
+        nextBill.setBillType(1); // 租金
+        nextBill.setStatus(BillStatus.UNPAID);
+        nextBill.setAmount(contract.getMonthlyRent().multiply(BigDecimal.valueOf(monthsPerBill)));
+        nextBill.setStartDate(nextStartDate);
+        nextBill.setEndDate(nextEndDate);
+        nextBill.setBillDate(LocalDate.now());
+        nextBill.setDueDate(nextStartDate.plusDays(5)); // 5天内支付
+        nextBill.setPaidAmount(BigDecimal.ZERO);
+
+        this.save(nextBill);
+        log.info("账单 {} 已支付，已生成下一期账单 {}", paidBill.getBillNo(), nextBill.getBillNo());
+    }
+
+    private int getMonthsPerBill(Integer paymentMethod) {
+        return switch (paymentMethod) {
+            case 1 -> 1;  // 月付
+            case 2 -> 3;  // 季付
+            case 3 -> 6;  // 半年付
+            case 4 -> 12; // 年付
+            default -> 1;
+        };
     }
 
     @Override
@@ -176,6 +245,7 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
             bill.setAmount(contract.getMonthlyRent().multiply(BigDecimal.valueOf(monthsPerBill)));
             bill.setStartDate(currentDate);
             bill.setEndDate(billEndDate);
+            bill.setBillDate(currentDate); // 账单日期为周期开始
             bill.setDueDate(currentDate.plusDays(5)); // 5天内支付
             bill.setPaidAmount(BigDecimal.ZERO);
 
@@ -183,6 +253,121 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
 
             currentDate = billEndDate;
         }
+    }
+
+    @Override
+    public void autoGenerateBills() {
+        // 查找所有生效中的合同
+        List<Contract> activeContracts = contractMapper.selectList(
+            new LambdaQueryWrapper<Contract>()
+                .eq(Contract::getStatus, com.pingan.ams.model.enums.ContractStatus.ACTIVE)
+        );
+
+        for (Contract contract : activeContracts) {
+            // 检查该合同今天是否需要生成账单
+            if (shouldGenerateBillToday(contract)) {
+                // 检查是否已生成过
+                if (!hasBillForCurrentPeriod(contract)) {
+                    generateCurrentPeriodBill(contract);
+                    log.info("为合同 {} 自动生成账单", contract.getContractNo());
+                }
+            }
+        }
+    }
+
+    /**
+     * 判断今天是否应该为该合同生成账单
+     */
+    private boolean shouldGenerateBillToday(Contract contract) {
+        LocalDate today = LocalDate.now();
+        int monthsPerBill = getMonthsPerBill(contract.getPaymentMethod());
+
+        // 从合同开始日期计算，今天是否是某个账单周期的开始日期
+        LocalDate checkDate = contract.getStartDate();
+        while (checkDate.isBefore(contract.getEndDate())) {
+            if (checkDate.equals(today)) {
+                return true;
+            }
+            checkDate = checkDate.plusMonths(monthsPerBill);
+        }
+        return false;
+    }
+
+    /**
+     * 检查当前周期是否已有账单
+     */
+    private boolean hasBillForCurrentPeriod(Contract contract) {
+        LocalDate today = LocalDate.now();
+        LambdaQueryWrapper<Bill> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Bill::getContractId, contract.getId())
+               .eq(Bill::getBillType, 1)
+               .le(Bill::getStartDate, today)
+               .gt(Bill::getEndDate, today);
+        return this.count(wrapper) > 0;
+    }
+
+    /**
+     * 为当前周期生成账单
+     */
+    private void generateCurrentPeriodBill(Contract contract) {
+        LocalDate today = LocalDate.now();
+        int monthsPerBill = getMonthsPerBill(contract.getPaymentMethod());
+
+        // 找到当前周期的开始日期
+        LocalDate periodStart = contract.getStartDate();
+        while (periodStart.plusMonths(monthsPerBill).isBefore(today)) {
+            periodStart = periodStart.plusMonths(monthsPerBill);
+        }
+
+        LocalDate periodEnd = periodStart.plusMonths(monthsPerBill);
+        if (periodEnd.isAfter(contract.getEndDate())) {
+            periodEnd = contract.getEndDate();
+        }
+
+        Bill bill = new Bill();
+        bill.setTenantId(contract.getTenantId());
+        bill.setBillNo(generateBillNo());
+        bill.setContractId(contract.getId());
+        bill.setUserId(contract.getUserId());
+        bill.setRoomId(contract.getRoomId());
+        bill.setBillType(1);
+        bill.setStatus(BillStatus.UNPAID);
+        bill.setAmount(contract.getMonthlyRent().multiply(BigDecimal.valueOf(monthsPerBill)));
+        bill.setStartDate(periodStart);
+        bill.setEndDate(periodEnd);
+        bill.setBillDate(today);
+        bill.setDueDate(today.plusDays(5));
+        bill.setPaidAmount(BigDecimal.ZERO);
+
+        this.save(bill);
+    }
+
+    @Override
+    public void processOverdueBills() {
+        LocalDate today = LocalDate.now();
+
+        // 查找所有待支付但已逾期的账单
+        List<Bill> overdueBills = this.list(
+            new LambdaQueryWrapper<Bill>()
+                .eq(Bill::getStatus, BillStatus.UNPAID)
+                .lt(Bill::getDueDate, today)
+        );
+
+        for (Bill bill : overdueBills) {
+            bill.setStatus(BillStatus.OVERDUE);
+            this.updateById(bill);
+            log.info("账单 {} 已逾期，状态已更新", bill.getBillNo());
+        }
+    }
+
+    private int getMonthsPerBill(Integer paymentMethod) {
+        return switch (paymentMethod) {
+            case 1 -> 1;  // 月付
+            case 2 -> 3;  // 季付
+            case 3 -> 6;  // 半年付
+            case 4 -> 12; // 年付
+            default -> 1;
+        };
     }
 
     private Bill getBillByIdAndTenantId(Long billId, Long tenantId) {

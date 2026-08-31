@@ -32,6 +32,7 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
 
     private final UserMapper userMapper;
     private final RoomMapper roomMapper;
+    private final BuildingMapper buildingMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -42,10 +43,16 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
             throw new BusinessException("房间不存在");
         }
 
+        // 检查租客
+        User user = userMapper.selectById(workOrderDTO.getUserId());
+        if (user == null || !user.getTenantId().equals(tenantId)) {
+            throw new BusinessException("租客不存在");
+        }
+
         WorkOrder workOrder = new WorkOrder();
         BeanUtils.copyProperties(workOrderDTO, workOrder);
         workOrder.setTenantId(tenantId);
-        workOrder.setUserId(userId);
+        workOrder.setUserId(workOrderDTO.getUserId()); // 使用DTO中的userId
         workOrder.setOrderNo(generateOrderNo());
         workOrder.setStatus(WorkOrderStatus.PENDING);
 
@@ -184,6 +191,11 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         Room room = roomMapper.selectById(workOrder.getRoomId());
         if (room != null) {
             vo.setRoomNo(room.getRoomNo());
+            // 获取楼栋信息
+            Building building = buildingMapper.selectById(room.getBuildingId());
+            if (building != null) {
+                vo.setBuildingName(building.getName());
+            }
         }
 
         // 获取租客信息

@@ -24,11 +24,12 @@ public class JwtUtils {
     /**
      * 生成Token
      */
-    public static String generateToken(Long userId, Long tenantId, Integer userType) {
+    public static String generateToken(Long userId, Long tenantId, Integer userType, String username) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("tenantId", tenantId);
         claims.put("userType", userType);
+        claims.put("username", username != null ? username : "");
 
         return Jwts.builder()
                 .claims(claims)
@@ -37,6 +38,13 @@ public class JwtUtils {
                 .expiration(new Date(System.currentTimeMillis() + EXPIRATION))
                 .signWith(KEY)
                 .compact();
+    }
+
+    /**
+     * 生成Token（向后兼容）
+     */
+    public static String generateToken(Long userId, Long tenantId, Integer userType) {
+        return generateToken(userId, tenantId, userType, null);
     }
 
     /**

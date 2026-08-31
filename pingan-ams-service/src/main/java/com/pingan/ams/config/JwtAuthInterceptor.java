@@ -47,9 +47,10 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
             Long userId = claims.get("userId", Long.class);
             Long tenantId = claims.get("tenantId", Long.class);
             Integer userType = claims.get("userType", Integer.class);
+            String username = claims.get("username", String.class);
 
             // 设置当前用户信息
-            SecurityUtils.setCurrentUser(userId, tenantId, userType);
+            SecurityUtils.setCurrentUser(userId, tenantId, userType, username);
 
             return true;
         } catch (Exception e) {

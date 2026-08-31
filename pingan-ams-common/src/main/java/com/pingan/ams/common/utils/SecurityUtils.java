@@ -4,7 +4,6 @@ import com.pingan.ams.common.constant.CommonConstant;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * 安全工具类
@@ -14,6 +13,14 @@ public class SecurityUtils {
     private static final String USER_ID_ATTR = "currentUserId";
     private static final String TENANT_ID_ATTR = "currentTenantId";
     private static final String USER_TYPE_ATTR = "currentUserType";
+    private static final String USERNAME_ATTR = "currentUsername";
+
+    /**
+     * 获取当前用户ID
+     */
+    public static Long getUserId() {
+        return getCurrentUserId();
+    }
 
     /**
      * 获取当前用户ID
@@ -27,6 +34,13 @@ public class SecurityUtils {
             }
         }
         return null;
+    }
+
+    /**
+     * 获取当前租户ID
+     */
+    public static Long getTenantId() {
+        return getCurrentTenantId();
     }
 
     /**
@@ -58,14 +72,38 @@ public class SecurityUtils {
     }
 
     /**
+     * 获取当前用户名
+     */
+    public static String getCurrentUsername() {
+        RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
+        if (attributes != null) {
+            Object username = attributes.getAttribute(USERNAME_ATTR, RequestAttributes.SCOPE_REQUEST);
+            if (username != null) {
+                return (String) username;
+            }
+        }
+        return null;
+    }
+
+    /**
      * 设置当前用户信息
      */
     public static void setCurrentUser(Long userId, Long tenantId, Integer userType) {
+        setCurrentUser(userId, tenantId, userType, null);
+    }
+
+    /**
+     * 设置当前用户信息（含用户名）
+     */
+    public static void setCurrentUser(Long userId, Long tenantId, Integer userType, String username) {
         RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
         if (attributes != null) {
             attributes.setAttribute(USER_ID_ATTR, userId, RequestAttributes.SCOPE_REQUEST);
             attributes.setAttribute(TENANT_ID_ATTR, tenantId, RequestAttributes.SCOPE_REQUEST);
             attributes.setAttribute(USER_TYPE_ATTR, userType, RequestAttributes.SCOPE_REQUEST);
+            if (username != null) {
+                attributes.setAttribute(USERNAME_ATTR, username, RequestAttributes.SCOPE_REQUEST);
+            }
         }
     }
 

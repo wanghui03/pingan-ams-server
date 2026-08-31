@@ -31,6 +31,11 @@ public class LoginVO {
     private Integer userType;
 
     /**
+     * 用户名
+     */
+    private String username;
+
+    /**
      * 昵称
      */
     private String nickname;

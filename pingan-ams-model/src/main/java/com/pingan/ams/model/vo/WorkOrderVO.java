@@ -24,6 +24,8 @@ public class WorkOrderVO {
 
     private String roomNo;
 
+    private String buildingName;
+
     private Integer orderType;
 
     private String orderTypeDesc;

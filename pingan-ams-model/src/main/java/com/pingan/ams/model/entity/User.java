@@ -31,6 +31,16 @@ public class User {
     private String unionid;
 
     /**
+     * 登录账号（PC端登录）
+     */
+    private String username;
+
+    /**
+     * 登录密码（BCrypt加密）
+     */
+    private String password;
+
+    /**
      * 手机号
      */
     private String phone;
