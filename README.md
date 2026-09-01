@@ -14,22 +14,25 @@ pingan-ams-server/
 │   ├── result/                 # 统一返回结果
 │   └── utils/                  # 工具类（JWT、密码加密等）
 ├── pingan-ams-model/           # 实体模型模块
-│   ├── dto/                    # 数据传输对象（12个）
-│   ├── entity/                 # 数据库实体（9个）
+│   ├── dto/                    # 数据传输对象（16个）
+│   ├── entity/                 # 数据库实体（15个）
 │   ├── enums/                  # 枚举类（5个）
-│   └── vo/                     # 视图对象（12个）
+│   └── vo/                     # 视图对象（15个）
 ├── pingan-ams-service/         # 业务服务模块
-│   ├── annotation/             # 自定义注解（@Log）
-│   ├── aspect/                 # AOP切面（操作日志）
+│   ├── annotation/             # 自定义注解（@Log、@RequirePermission）
+│   ├── aspect/                 # AOP切面（操作日志、权限校验）
 │   ├── config/                 # 配置类（MyBatis Plus、JWT拦截器、WebMvc等）
-│   ├── mapper/                 # 数据访问层（9个）
-│   ├── service/                # 业务接口及实现（10个模块）
+│   ├── mapper/                 # 数据访问层（15个）
+│   ├── service/                # 业务接口及实现（14个模块）
 │   └── task/                   # 定时任务（合同到期、账单生成、逾期处理）
 ├── pingan-ams-admin/           # 管理后台API模块
-│   ├── controller/             # 控制器（13个）
+│   ├── controller/             # 控制器（18个）
 │   └── resources/              # 配置文件
 └── sql/                        # 数据库脚本
     ├── init.sql                # 初始化脚本（含默认数据）
+    ├── rbac_init.sql           # RBAC权限相关表和默认数据
+    ├── contract_change.sql     # 合同变更相关表
+    ├── notification.sql        # 站内通知表
     └── fix_admin_password.sql  # 密码修复脚本
 ```
 
@@ -47,6 +50,7 @@ pingan-ams-server/
 | JWT (jjwt) | 0.12.3 | 认证授权 |
 | Spring Security Crypto | 6.x | BCrypt密码加密 |
 | Spring AOP | 6.x | 操作日志切面 |
+| Apache POI | 5.2.3 | Excel导出 |
 | Hutool | 5.8.24 | 工具库 |
 
 ## 快速开始
@@ -72,6 +76,17 @@ mysql -u root -p < sql/init.sql
 - 超级管理员账号：`superadmin / admin123`
 - 租户管理员账号：`admin / admin123`
 - 默认系统配置（人脸识别开关、合同自动到期、账单逾期天数等）
+
+```bash
+# 执行RBAC权限相关表初始化
+mysql -u root -p < sql/rbac_init.sql
+```
+
+RBAC初始化脚本会创建：
+- 4张RBAC相关表（角色、权限、用户角色关联、角色权限关联）
+- 默认权限数据（菜单+按钮权限）
+- 8个预置角色（超级管理员、平台运营、租户管理员、店长、管家、财务、维修工、个人房东）
+- 默认角色权限分配
 
 ### 3. 修改配置
 
@@ -283,13 +298,83 @@ mvn spring-boot:run -pl pingan-ams-admin
 | 自动生成账单 | 每天凌晨1点 | 检查生效中合同生成到期账单 |
 | 处理逾期账单 | 每天凌晨2点 | 将逾期账单标记为已逾期 |
 
+### 15. RBAC权限控制 ✅
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| /role | POST | 创建角色 |
+| /role/{id} | PUT | 更新角色 |
+| /role/{id} | DELETE | 删除角色 |
+| /role/{id} | GET | 获取角色详情 |
+| /role/list | GET | 分页查询角色 |
+| /role/all | GET | 获取所有角色（下拉选择） |
+| /role/{id}/permissions | POST | 分配角色权限 |
+| /role/user/{userId} | GET | 获取用户角色 |
+| /role/user/{userId}/assign | POST | 为用户分配角色 |
+| /role/my/permissions | GET | 获取当前用户权限列表 |
+
+**权限控制特性：**
+- 通过 `@RequirePermission` 注解控制接口访问
+- 通过系统配置 `permission_enabled` 动态开关（默认关闭）
+- 全局角色（tenant_id=NULL）所有租户共享
+- 8个预置角色，支持自定义角色
+
+### 16. 数据导出 ✅
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| /export/contracts | GET | 导出合同数据为Excel |
+| /export/bills | GET | 导出账单数据为Excel |
+| /export/workorders | GET | 导出工单数据为Excel |
+
+### 17. 超级管理员跨租户查询 ✅
+
+- `SecurityUtils.getQueryTenantId()` - 超级管理员返回null，普通用户返回实际tenantId
+- 所有查询接口支持超级管理员查看所有租户数据
+- 普通用户只能查看本租户数据
+
+### 18. 合同变更 ✅
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| /contract-change | POST | 创建变更申请（续约/转租/提前退租） |
+| /contract-change/{id}/approve | PUT | 审批变更申请（通过/驳回） |
+| /contract-change/{id}/execute | PUT | 执行变更（修改原合同） |
+| /contract-change/{id} | GET | 获取变更详情 |
+| /contract-change/list | GET | 分页查询变更列表 |
+| /contract-change/contract/{contractId} | GET | 按合同查询变更历史 |
+
+**合同变更流程：** 创建申请(0) → 审批通过(1)/驳回(2) → 执行(3)
+
+**变更类型：**
+- 续约：修改合同起止日期、月租金
+- 转租：更换租客
+- 提前退租：修改结束日期、设置违约金、退还押金
+
+### 19. 消息通知 ✅
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| /notification | POST | 创建通知 |
+| /notification/{id}/read | PUT | 标记已读 |
+| /notification/read-all | PUT | 全部标记已读 |
+| /notification/{id} | DELETE | 删除通知 |
+| /notification/list | GET | 分页查询通知列表 |
+| /notification/unread-count | GET | 获取未读数量 |
+
+**通知类型：**
+- 1-账单通知
+- 2-合同通知
+- 3-工单通知
+- 4-系统通知
+
 ## 核心功能
 
 ### 多租户数据隔离
 
 - 所有业务表都包含 `tenant_id` 字段
-- 所有查询、新增、修改、删除都带上 `tenantId`
-- 基于JWT Token中的 `tenantId` 实现数据隔离
+- 查询使用 `SecurityUtils.getQueryTenantId()` - 超级管理员返回null（查全部），普通用户返回实际tenantId
+- 新增、修改、删除基于JWT Token中的 `tenantId` 实现数据隔离
 - 超级管理员（userType=0）可以管理所有租户
 
 ### 双模式认证
@@ -375,16 +460,17 @@ mvn spring-boot:run -pl pingan-ams-admin
 | ams_work_order | 工单表 | id, tenant_id, order_type(1报修/2投诉/3咨询/4其他), status(0待处理/1处理中/2已完成/3已关闭) |
 | ams_sys_config | 系统配置表 | id, tenant_id, config_key, config_value, config_desc |
 | ams_operation_log | 操作日志表 | id, tenant_id, user_id, username, module, operation, method, params, ip, status, cost_time |
+| ams_contract_change | 合同变更表 | id, tenant_id, contract_id, change_no, change_type(1续约/2转租/3提前退租), status(0待审核/1通过/2驳回/3已执行) |
+| ams_contract_change_history | 变更历史表 | id, contract_id, change_id, action_type, action_desc, operator_id |
+| ams_notification | 站内通知表 | id, tenant_id, user_id, title, content, type(1账单/2合同/3工单/4系统), is_read |
 
 ## 待开发功能
 
 - [ ] 微信API真实对接（替换mock openid）
 - [ ] 腾讯电子签对接
-- [ ] 消息推送（微信模板消息/短信）
+- [ ] 消息通知自动触发（账单/合同到期提醒、工单状态通知）
 - [ ] 数据统计报表（完善首页统计、营收分析）
-- [ ] RBAC权限控制（基于角色的菜单/按钮权限）
-- [ ] 合同变更（续签、转租、提前退租）
-- [ ] 数据报表导出（Excel/PDF）
+- [ ] 合同审批流程（多级审批）
 - [ ] 租客端小程序开发
 - [ ] 智能硬件对接（预留接口）
 - [ ] 云存储对接（阿里云OSS/MinIO）
@@ -426,5 +512,5 @@ mvn spring-boot:run -pl pingan-ams-admin
 
 ---
 
-**最后更新：** 2026-08-31  
-**版本：** v2.1
+**最后更新：** 2026-09-01  
+**版本：** v2.3

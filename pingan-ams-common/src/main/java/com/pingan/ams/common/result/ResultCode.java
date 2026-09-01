@@ -28,7 +28,7 @@ public enum ResultCode {
     DATA_DUPLICATE(3002, "数据已存在"),
     STATUS_ERROR(3003, "状态异常"),
     NO_PERMISSION(3004, "无权限执行此操作"),
-    
+    CONTRACT_STATUS_ERROR(3005, "合同状态异常"),
     // 第三方服务 4xxx
     SMS_SEND_ERROR(4001, "短信发送失败"),
     OSS_UPLOAD_ERROR(4002, "文件上传失败");
