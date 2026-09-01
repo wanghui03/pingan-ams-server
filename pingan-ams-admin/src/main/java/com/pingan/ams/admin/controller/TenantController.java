@@ -2,6 +2,7 @@ package com.pingan.ams.admin.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.pingan.ams.common.annotation.Log;
+import com.pingan.ams.common.annotation.RequirePermission;
 import com.pingan.ams.common.result.Result;
 import com.pingan.ams.common.utils.SecurityUtils;
 import com.pingan.ams.model.dto.TenantDTO;
@@ -27,6 +28,7 @@ public class TenantController {
     private final TenantService tenantService;
 
     @Log(module = "租户管理", operation = "创建", description = "创建新租户")
+    @RequirePermission("tenant:create")
     @Operation(summary = "创建租户")
     @PostMapping
     public Result<Long> createTenant(@Valid @RequestBody TenantDTO tenantDTO) {
@@ -35,6 +37,7 @@ public class TenantController {
     }
 
     @Log(module = "租户管理", operation = "更新", description = "更新租户信息")
+    @RequirePermission("tenant:edit")
     @Operation(summary = "更新租户")
     @PutMapping("/{tenantId}")
     public Result<Void> updateTenant(@PathVariable Long tenantId, @Valid @RequestBody TenantDTO tenantDTO) {
@@ -43,6 +46,7 @@ public class TenantController {
     }
 
     @Log(module = "租户管理", operation = "删除", description = "删除租户")
+    @RequirePermission("tenant:delete")
     @Operation(summary = "删除租户")
     @DeleteMapping("/{tenantId}")
     public Result<Void> deleteTenant(@PathVariable Long tenantId) {
@@ -50,6 +54,7 @@ public class TenantController {
         return Result.success();
     }
 
+    @RequirePermission("tenant:detail")
     @Operation(summary = "获取租户详情")
     @GetMapping("/{tenantId}")
     public Result<TenantVO> getTenantDetail(@PathVariable Long tenantId) {
@@ -57,6 +62,7 @@ public class TenantController {
         return Result.success(tenantVO);
     }
 
+    @RequirePermission("tenant:list")
     @Operation(summary = "分页查询租户列表")
     @GetMapping("/list")
     public Result<Page<TenantVO>> listTenants(
@@ -67,6 +73,7 @@ public class TenantController {
         return Result.success(pageResult);
     }
 
+    @RequirePermission("tenant:list")
     @Operation(summary = "获取所有租户（下拉选择用）")
     @GetMapping("/all")
     public Result<List<TenantVO>> getAllTenants() {
@@ -75,6 +82,7 @@ public class TenantController {
     }
 
     @Log(module = "租户管理", operation = "状态变更", description = "启用/禁用租户")
+    @RequirePermission("tenant:status")
     @Operation(summary = "启用/禁用租户")
     @PutMapping("/{tenantId}/status")
     public Result<Void> updateTenantStatus(

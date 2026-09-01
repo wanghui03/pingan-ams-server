@@ -8,6 +8,7 @@ import com.pingan.ams.common.result.ResultCode;
 import com.pingan.ams.mapper.*;
 import com.pingan.ams.model.dto.ContractDTO;
 import com.pingan.ams.model.entity.*;
+import com.pingan.ams.model.enums.BillStatus;
 import com.pingan.ams.model.enums.ContractStatus;
 import com.pingan.ams.model.enums.RoomStatus;
 import com.pingan.ams.model.vo.ContractVO;
@@ -18,6 +19,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -95,7 +97,9 @@ public class ContractServiceImpl extends ServiceImpl<ContractMapper, Contract> i
         Page<Contract> pageParam = new Page<>(page, size);
 
         LambdaQueryWrapper<Contract> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Contract::getTenantId, tenantId);
+        if (tenantId != null) {
+            wrapper.eq(Contract::getTenantId, tenantId);
+        }
 
         if (status != null) {
             wrapper.eq(Contract::getStatus, status);
@@ -305,6 +309,7 @@ public class ContractServiceImpl extends ServiceImpl<ContractMapper, Contract> i
 
         // 设置状态描述
         if (contract.getStatus() != null) {
+            vo.setStatus(contract.getStatus().getCode());
             vo.setStatusDesc(contract.getStatus().getDesc());
         }
 

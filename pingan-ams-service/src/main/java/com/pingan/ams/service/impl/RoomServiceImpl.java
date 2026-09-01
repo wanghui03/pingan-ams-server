@@ -60,7 +60,9 @@ public class RoomServiceImpl extends ServiceImpl<RoomMapper, Room> implements Ro
         Page<Room> pageParam = new Page<>(page, size);
         
         LambdaQueryWrapper<Room> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Room::getTenantId, tenantId);
+        if (tenantId != null) {
+            wrapper.eq(Room::getTenantId, tenantId);
+        }
         
         if (status != null) {
             wrapper.eq(Room::getStatus, status);

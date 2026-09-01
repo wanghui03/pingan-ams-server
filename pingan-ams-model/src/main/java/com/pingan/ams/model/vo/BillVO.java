@@ -19,6 +19,8 @@ public class BillVO {
 
     private Long contractId;
 
+    private String contractNo;
+
     private Long userId;
 
     private String tenantName;
@@ -31,7 +33,7 @@ public class BillVO {
 
     private String billTypeDesc;
 
-    private BillStatus status;
+    private Integer status;
 
     private String statusDesc;
 
@@ -40,6 +42,8 @@ public class BillVO {
     private LocalDate startDate;
 
     private LocalDate endDate;
+
+    private LocalDate billDate;
 
     private LocalDate dueDate;
 

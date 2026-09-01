@@ -14,16 +14,19 @@ pingan-ams-server/
 │   ├── result/                 # 统一返回结果
 │   └── utils/                  # 工具类（JWT、密码加密等）
 ├── pingan-ams-model/           # 实体模型模块
-│   ├── dto/                    # 数据传输对象（9个）
-│   ├── entity/                 # 数据库实体（7个）
+│   ├── dto/                    # 数据传输对象（12个）
+│   ├── entity/                 # 数据库实体（9个）
 │   ├── enums/                  # 枚举类（5个）
-│   └── vo/                     # 视图对象（8个）
+│   └── vo/                     # 视图对象（12个）
 ├── pingan-ams-service/         # 业务服务模块
-│   ├── config/                 # 配置类（MyBatis Plus、JWT拦截器、密码编码器等）
-│   ├── mapper/                 # 数据访问层（7个）
-│   └── service/                # 业务接口及实现（7个模块）
+│   ├── annotation/             # 自定义注解（@Log）
+│   ├── aspect/                 # AOP切面（操作日志）
+│   ├── config/                 # 配置类（MyBatis Plus、JWT拦截器、WebMvc等）
+│   ├── mapper/                 # 数据访问层（9个）
+│   ├── service/                # 业务接口及实现（10个模块）
+│   └── task/                   # 定时任务（合同到期、账单生成、逾期处理）
 ├── pingan-ams-admin/           # 管理后台API模块
-│   ├── controller/             # 控制器（9个）
+│   ├── controller/             # 控制器（13个）
 │   └── resources/              # 配置文件
 └── sql/                        # 数据库脚本
     ├── init.sql                # 初始化脚本（含默认数据）
@@ -43,6 +46,7 @@ pingan-ams-server/
 | Knife4j | 4.3.0 | API文档 |
 | JWT (jjwt) | 0.12.3 | 认证授权 |
 | Spring Security Crypto | 6.x | BCrypt密码加密 |
+| Spring AOP | 6.x | 操作日志切面 |
 | Hutool | 5.8.24 | 工具库 |
 
 ## 快速开始
@@ -63,10 +67,11 @@ mysql -u root -p < sql/init.sql
 
 初始化脚本会创建：
 - 数据库 `pingan_ams`
-- 7张核心业务表
+- 9张核心业务表（含系统配置表、操作日志表）
 - 默认租户（ID=1）
 - 超级管理员账号：`superadmin / admin123`
 - 租户管理员账号：`admin / admin123`
+- 默认系统配置（人脸识别开关、合同自动到期、账单逾期天数等）
 
 ### 3. 修改配置
 
@@ -105,7 +110,7 @@ mvn spring-boot:run -pl pingan-ams-admin
 
 ### 5. 访问接口文档
 
-启动成功后访问: **http://localhost:8080/api/doc.html**
+启动成功后访问: **http://localhost:8088/api/doc.html**
 
 ## 系统账号
 
@@ -128,28 +133,42 @@ mvn spring-boot:run -pl pingan-ams-admin
 - 小程序端：微信授权码 → 获取openid → 匹配用户 → 生成Token
 - PC端：username + password → BCrypt校验 → 匹配用户 → 生成Token
 - 同一用户可同时拥有openid和username/password，支持多端登录
+- JWT Token 包含 userId、tenantId、userType、username
 
 ### 2. 租户管理模块 ✅（仅超级管理员）
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| /platform/tenant | POST | 创建租户 |
-| /platform/tenant/{id} | PUT | 更新租户 |
-| /platform/tenant/{id} | DELETE | 删除租户 |
-| /platform/tenant/{id} | GET | 获取租户详情 |
-| /platform/tenant/list | GET | 分页查询租户 |
-| /platform/tenant/all | GET | 获取所有租户 |
-| /platform/tenant/{id}/status | PUT | 启用/禁用租户 |
+| /tenant | POST | 创建租户 |
+| /tenant/{id} | PUT | 更新租户 |
+| /tenant/{id} | DELETE | 删除租户 |
+| /tenant/{id} | GET | 获取租户详情 |
+| /tenant/list | GET | 分页查询租户 |
+| /tenant/{id}/status | PUT | 启用/禁用租户 |
 
-### 3. 用户模块 ✅
+### 3. 员工管理模块 ✅
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| /user/info | GET | 获取当前用户信息 |
-| /user/info | PUT | 更新用户信息 |
-| /user/auth | POST | 实名认证 |
+| /staff | POST | 创建员工 |
+| /staff/{id} | PUT | 更新员工 |
+| /staff/{id} | DELETE | 删除员工 |
+| /staff/{id} | GET | 获取员工详情 |
+| /staff/list | GET | 分页查询员工 |
+| /staff/{id}/status | PUT | 启用/禁用员工 |
+| /staff/change-password | POST | 修改密码 |
 
-### 4. 楼栋模块 ✅
+### 4. 租客管理模块 ✅
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| /tenant-user | POST | 创建租客（仅需姓名、手机、身份证） |
+| /tenant-user/{id} | PUT | 更新租客 |
+| /tenant-user/{id} | GET | 获取租客详情 |
+| /tenant-user/list | GET | 分页查询租客 |
+| /tenant-user/{id}/status | PUT | 启用/禁用租客 |
+
+### 5. 楼栋模块 ✅
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
@@ -157,10 +176,9 @@ mvn spring-boot:run -pl pingan-ams-admin
 | /building/{id} | PUT | 更新楼栋 |
 | /building/{id} | GET | 获取楼栋详情 |
 | /building/list | GET | 分页查询楼栋 |
-| /building/all | GET | 获取所有楼栋 |
 | /building/{id} | DELETE | 删除楼栋 |
 
-### 5. 房间模块 ✅
+### 6. 房间模块 ✅
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
@@ -170,7 +188,7 @@ mvn spring-boot:run -pl pingan-ams-admin
 | /room/list | GET | 分页查询房间（支持状态、类型筛选） |
 | /room/{id} | DELETE | 删除房间 |
 
-### 6. 合同模块 ✅
+### 7. 合同模块 ✅
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
@@ -178,22 +196,32 @@ mvn spring-boot:run -pl pingan-ams-admin
 | /contract/{id} | PUT | 更新合同 |
 | /contract/{id} | GET | 获取合同详情 |
 | /contract/list | GET | 分页查询合同 |
+| /contract/{id}/submit | PUT | 提交审核 |
+| /contract/{id}/approve | PUT | 审核通过（自动生成首期账单） |
+| /contract/{id}/reject | PUT | 审核驳回 |
 | /contract/{id}/terminate | PUT | 终止合同（释放房间） |
-| /contract/{id}/generate-bills | POST | 根据合同生成账单 |
 
-### 7. 账单模块 ✅
+**合同状态流转：** 草稿(0) → 待审核(1) → 生效中(2) → 已到期(3)/已终止(4)
+
+### 8. 账单模块 ✅
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| /bill | POST | 创建账单 |
+| /bill | POST | 创建账单（手动，用于水电费等） |
 | /bill/{id} | GET | 获取账单详情 |
 | /bill/list | GET | 分页查询账单 |
-| /bill/{id}/pay | PUT | 标记账单已支付 |
+| /bill/{id}/pay | PUT | 确认收款（自动生成下期账单） |
 | /bill/{id}/cancel | PUT | 取消账单 |
 | /bill/unpaid-amount | GET | 获取待支付总金额 |
 | /bill/generate-rent-bills | POST | 根据合同生成租金账单 |
 
-### 8. 工单模块 ✅
+**账单自动生成逻辑：**
+- 合同审核通过 → 自动生成首期账单
+- 确认收款 → 自动生成下一期账单（滚动生成）
+- 定时任务（每天凌晨1点）→ 检查生效中合同自动生成到期账单
+- 定时任务（每天凌晨2点）→ 自动标记逾期账单
+
+### 9. 工单模块 ✅
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
@@ -204,11 +232,56 @@ mvn spring-boot:run -pl pingan-ams-admin
 | /work-order/{id}/handle | PUT | 处理工单 |
 | /work-order/{id}/rate | PUT | 评价工单 |
 
-### 9. 系统模块 ✅
+### 10. 仪表盘模块 ✅
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| /system/health | GET | 健康检查 |
+| /dashboard/stats | GET | 获取首页统计数据 |
+
+统计内容：楼栋数、房间数、入住率、合同数、待收金额、已收金额、逾期账单数、待处理工单数
+
+### 11. 系统配置模块 ✅
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| /sys-config | POST | 创建配置 |
+| /sys-config/{id} | PUT | 更新配置 |
+| /sys-config/{id} | DELETE | 删除配置 |
+| /sys-config/list | GET | 查询配置列表 |
+| /sys-config/value | GET | 获取配置值 |
+
+默认配置：
+- `face_auth_enabled` - 人脸识别开关
+- `contract_auto_expire` - 合同自动到期开关
+- `bill_overdue_days` - 账单逾期天数
+- `system_name` - 系统名称
+
+### 12. 文件上传模块 ✅
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| /file/upload | POST | 通用文件上传 |
+| /file/upload/idcard | POST | 身份证照片上传 |
+| /file/upload/workorder | POST | 工单图片上传 |
+
+存储方式：本地存储（预留OSS/MinIO接口）
+
+### 13. 操作日志模块 ✅
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| /operation-log/list | GET | 查询操作日志 |
+| /operation-log/clear | DELETE | 清空操作日志 |
+
+通过 `@Log` 注解记录所有增删改操作，包含：操作人、操作模块、操作类型、请求方法、请求参数、IP地址、执行耗时
+
+### 14. 定时任务 ✅
+
+| 任务 | 执行时间 | 说明 |
+|------|---------|------|
+| 处理到期合同 | 每天凌晨0点 | 将到期合同标记为已到期 |
+| 自动生成账单 | 每天凌晨1点 | 检查生效中合同生成到期账单 |
+| 处理逾期账单 | 每天凌晨2点 | 将逾期账单标记为已逾期 |
 
 ## 核心功能
 
@@ -242,9 +315,15 @@ mvn spring-boot:run -pl pingan-ams-admin
 ### JWT 认证
 
 1. Token有效期：7天
-2. Token内容：userId、tenantId、userType
+2. Token内容：userId、tenantId、userType、username
 3. 请求头格式：`Authorization: Bearer <token>`
 4. JWT拦截器自动验证Token并设置当前用户信息
+
+### 操作日志
+
+- 基于AOP实现，通过 `@Log` 注解记录操作
+- 记录内容：操作人、操作模块、操作类型、请求方法、请求参数、IP、耗时
+- 异步保存，不影响业务性能
 
 ### 密码安全
 
@@ -291,23 +370,24 @@ mvn spring-boot:run -pl pingan-ams-admin
 | ams_user | 用户表 | id, tenant_id, openid, username, password, user_type(0超管/1租客/2员工/3管理员) |
 | ams_building | 楼栋表 | id, tenant_id, name, room_count, status |
 | ams_room | 房间表 | id, tenant_id, building_id, room_type(1商品房/2拆迁房/3自建房/4公寓), status(0空置/1已预订/2已入住/3维修中) |
-| ams_contract | 合同表 | id, tenant_id, user_id, room_id, status(0草稿/1待审核/2生效/3到期/4终止) |
-| ams_bill | 账单表 | id, tenant_id, bill_type(1租金/2水电/3押金/4其他), status(0待支付/1已支付/2逾期/3取消) |
+| ams_contract | 合同表 | id, tenant_id, user_id, room_id, status(0草稿/1待审核/2生效/3到期/4终止), sign_status(0未签署/1已签署) |
+| ams_bill | 账单表 | id, tenant_id, bill_type(1租金/2水电/3押金/4其他), status(0待支付/1已支付/2逾期/3取消), bill_date, due_date |
 | ams_work_order | 工单表 | id, tenant_id, order_type(1报修/2投诉/3咨询/4其他), status(0待处理/1处理中/2已完成/3已关闭) |
+| ams_sys_config | 系统配置表 | id, tenant_id, config_key, config_value, config_desc |
+| ams_operation_log | 操作日志表 | id, tenant_id, user_id, username, module, operation, method, params, ip, status, cost_time |
 
 ## 待开发功能
 
 - [ ] 微信API真实对接（替换mock openid）
 - [ ] 腾讯电子签对接
-- [ ] 文件上传（OSS/MinIO）
-- [ ] 消息推送（微信模板消息）
-- [ ] 数据统计报表（完善首页统计）
+- [ ] 消息推送（微信模板消息/短信）
+- [ ] 数据统计报表（完善首页统计、营收分析）
 - [ ] RBAC权限控制（基于角色的菜单/按钮权限）
-- [ ] 员工管理（租户管理员管理下属员工）
+- [ ] 合同变更（续签、转租、提前退租）
+- [ ] 数据报表导出（Excel/PDF）
 - [ ] 租客端小程序开发
-- [ ] 合同审批流程
 - [ ] 智能硬件对接（预留接口）
-- [ ] 修改密码、找回密码功能
+- [ ] 云存储对接（阿里云OSS/MinIO）
 
 ## 常见问题
 
@@ -342,8 +422,9 @@ mvn spring-boot:run -pl pingan-ams-admin
 5. **逻辑删除**: 所有表使用 `deleted` 字段标记删除
 6. **多租户隔离**: 所有查询必须带上 `tenantId`
 7. **密码加密**: 使用BCrypt加密存储密码
+8. **操作日志**: 所有增删改接口添加 `@Log` 注解
 
 ---
 
-**最后更新：** 2026-08-28  
-**版本：** v2.0
+**最后更新：** 2026-08-31  
+**版本：** v2.1

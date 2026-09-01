@@ -53,4 +53,21 @@ public class TenantDTO {
      * 状态：0-禁用 1-启用
      */
     private Integer status;
+
+    // ========== 创建时使用的管理员账号信息 ==========
+
+    /**
+     * 管理员登录账号（创建租户时必填）
+     */
+    private String adminUsername;
+
+    /**
+     * 管理员登录密码（创建租户时必填）
+     */
+    private String adminPassword;
+
+    /**
+     * 管理员真实姓名（创建租户时选填）
+     */
+    private String adminRealName;
 }

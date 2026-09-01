@@ -25,7 +25,7 @@ public class DashboardController {
     @Operation(summary = "获取首页统计数据")
     @GetMapping("/stats")
     public Result<DashboardStatsVO> getStats() {
-        Long tenantId = SecurityUtils.getCurrentTenantId();
+        Long tenantId = SecurityUtils.getQueryTenantId();
         DashboardStatsVO stats = dashboardService.getStats(tenantId);
         return Result.success(stats);
     }

@@ -124,4 +124,23 @@ public class SecurityUtils {
     public static boolean isAuthenticated() {
         return getCurrentUserId() != null;
     }
+
+    /**
+     * 判断当前用户是否为超级管理员
+     */
+    public static boolean isSuperAdmin() {
+        Integer userType = getCurrentUserType();
+        return userType != null && userType == 0;
+    }
+
+    /**
+     * 获取查询用的租户ID
+     * 超级管理员返回null（表示查所有租户数据），普通用户返回实际tenantId
+     */
+    public static Long getQueryTenantId() {
+        if (isSuperAdmin()) {
+            return null;
+        }
+        return getCurrentTenantId();
+    }
 }

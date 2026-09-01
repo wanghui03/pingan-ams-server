@@ -71,7 +71,9 @@ public class WorkOrderServiceImpl extends ServiceImpl<WorkOrderMapper, WorkOrder
         Page<WorkOrder> pageParam = new Page<>(page, size);
 
         LambdaQueryWrapper<WorkOrder> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(WorkOrder::getTenantId, tenantId);
+        if (tenantId != null) {
+            wrapper.eq(WorkOrder::getTenantId, tenantId);
+        }
 
         if (status != null) {
             wrapper.eq(WorkOrder::getStatus, status);

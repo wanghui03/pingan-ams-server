@@ -27,6 +27,7 @@ public enum ResultCode {
     DATA_NOT_FOUND(3001, "数据不存在"),
     DATA_DUPLICATE(3002, "数据已存在"),
     STATUS_ERROR(3003, "状态异常"),
+    NO_PERMISSION(3004, "无权限执行此操作"),
     
     // 第三方服务 4xxx
     SMS_SEND_ERROR(4001, "短信发送失败"),

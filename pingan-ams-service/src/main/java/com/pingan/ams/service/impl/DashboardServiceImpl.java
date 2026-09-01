@@ -36,27 +36,39 @@ public class DashboardServiceImpl implements DashboardService {
         DashboardStatsVO stats = new DashboardStatsVO();
 
         // 1. 楼栋统计
-        Long buildingCount = buildingMapper.selectCount(new LambdaQueryWrapper<Building>()
-                .eq(Building::getTenantId, tenantId)
-                .eq(Building::getDeleted, 0));
+        LambdaQueryWrapper<Building> buildingWrapper = new LambdaQueryWrapper<Building>()
+                .eq(Building::getDeleted, 0);
+        if (tenantId != null) {
+            buildingWrapper.eq(Building::getTenantId, tenantId);
+        }
+        Long buildingCount = buildingMapper.selectCount(buildingWrapper);
         stats.setBuildingCount(buildingCount);
 
         // 2. 房间统计
-        Long roomCount = roomMapper.selectCount(new LambdaQueryWrapper<Room>()
-                .eq(Room::getTenantId, tenantId)
-                .eq(Room::getDeleted, 0));
+        LambdaQueryWrapper<Room> roomWrapper = new LambdaQueryWrapper<Room>()
+                .eq(Room::getDeleted, 0);
+        if (tenantId != null) {
+            roomWrapper.eq(Room::getTenantId, tenantId);
+        }
+        Long roomCount = roomMapper.selectCount(roomWrapper);
         stats.setRoomCount(roomCount);
 
-        Long occupiedRoomCount = roomMapper.selectCount(new LambdaQueryWrapper<Room>()
-                .eq(Room::getTenantId, tenantId)
+        LambdaQueryWrapper<Room> occupiedWrapper = new LambdaQueryWrapper<Room>()
                 .eq(Room::getStatus, RoomStatus.OCCUPIED.getCode())
-                .eq(Room::getDeleted, 0));
+                .eq(Room::getDeleted, 0);
+        if (tenantId != null) {
+            occupiedWrapper.eq(Room::getTenantId, tenantId);
+        }
+        Long occupiedRoomCount = roomMapper.selectCount(occupiedWrapper);
         stats.setOccupiedRoomCount(occupiedRoomCount);
 
-        Long vacantRoomCount = roomMapper.selectCount(new LambdaQueryWrapper<Room>()
-                .eq(Room::getTenantId, tenantId)
+        LambdaQueryWrapper<Room> vacantWrapper = new LambdaQueryWrapper<Room>()
                 .eq(Room::getStatus, RoomStatus.VACANT.getCode())
-                .eq(Room::getDeleted, 0));
+                .eq(Room::getDeleted, 0);
+        if (tenantId != null) {
+            vacantWrapper.eq(Room::getTenantId, tenantId);
+        }
+        Long vacantRoomCount = roomMapper.selectCount(vacantWrapper);
         stats.setVacantRoomCount(vacantRoomCount);
 
         // 计算入住率
@@ -66,21 +78,30 @@ public class DashboardServiceImpl implements DashboardService {
         }
 
         // 3. 合同统计
-        Long contractCount = contractMapper.selectCount(new LambdaQueryWrapper<Contract>()
-                .eq(Contract::getTenantId, tenantId)
-                .eq(Contract::getDeleted, 0));
+        LambdaQueryWrapper<Contract> contractWrapper = new LambdaQueryWrapper<Contract>()
+                .eq(Contract::getDeleted, 0);
+        if (tenantId != null) {
+            contractWrapper.eq(Contract::getTenantId, tenantId);
+        }
+        Long contractCount = contractMapper.selectCount(contractWrapper);
         stats.setContractCount(contractCount);
 
-        Long activeContractCount = contractMapper.selectCount(new LambdaQueryWrapper<Contract>()
-                .eq(Contract::getTenantId, tenantId)
+        LambdaQueryWrapper<Contract> activeContractWrapper = new LambdaQueryWrapper<Contract>()
                 .eq(Contract::getStatus, ContractStatus.ACTIVE.getCode())
-                .eq(Contract::getDeleted, 0));
+                .eq(Contract::getDeleted, 0);
+        if (tenantId != null) {
+            activeContractWrapper.eq(Contract::getTenantId, tenantId);
+        }
+        Long activeContractCount = contractMapper.selectCount(activeContractWrapper);
         stats.setActiveContractCount(activeContractCount);
 
         // 4. 账单统计
-        List<Bill> bills = billMapper.selectList(new LambdaQueryWrapper<Bill>()
-                .eq(Bill::getTenantId, tenantId)
-                .eq(Bill::getDeleted, 0));
+        LambdaQueryWrapper<Bill> billWrapper = new LambdaQueryWrapper<Bill>()
+                .eq(Bill::getDeleted, 0);
+        if (tenantId != null) {
+            billWrapper.eq(Bill::getTenantId, tenantId);
+        }
+        List<Bill> bills = billMapper.selectList(billWrapper);
 
         BigDecimal unpaidAmount = BigDecimal.ZERO;
         BigDecimal paidAmount = BigDecimal.ZERO;
@@ -104,10 +125,13 @@ public class DashboardServiceImpl implements DashboardService {
         stats.setOverdueBillCount(overdueBillCount);
 
         // 5. 工单统计
-        Long pendingWorkOrderCount = workOrderMapper.selectCount(new LambdaQueryWrapper<WorkOrder>()
-                .eq(WorkOrder::getTenantId, tenantId)
+        LambdaQueryWrapper<WorkOrder> woWrapper = new LambdaQueryWrapper<WorkOrder>()
                 .eq(WorkOrder::getStatus, WorkOrderStatus.PENDING.getCode())
-                .eq(WorkOrder::getDeleted, 0));
+                .eq(WorkOrder::getDeleted, 0);
+        if (tenantId != null) {
+            woWrapper.eq(WorkOrder::getTenantId, tenantId);
+        }
+        Long pendingWorkOrderCount = workOrderMapper.selectCount(woWrapper);
         stats.setPendingWorkOrderCount(pendingWorkOrderCount);
 
         return stats;

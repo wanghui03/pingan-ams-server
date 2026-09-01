@@ -60,7 +60,9 @@ public class BuildingServiceImpl extends ServiceImpl<BuildingMapper, Building> i
         Page<Building> pageParam = new Page<>(page, size);
         
         LambdaQueryWrapper<Building> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Building::getTenantId, tenantId);
+        if (tenantId != null) {
+            wrapper.eq(Building::getTenantId, tenantId);
+        }
         wrapper.orderByDesc(Building::getCreateTime);
         
         Page<Building> buildingPage = this.page(pageParam, wrapper);
@@ -77,7 +79,9 @@ public class BuildingServiceImpl extends ServiceImpl<BuildingMapper, Building> i
     @Override
     public List<BuildingVO> getAllBuildings(Long tenantId) {
         LambdaQueryWrapper<Building> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Building::getTenantId, tenantId);
+        if (tenantId != null) {
+            wrapper.eq(Building::getTenantId, tenantId);
+        }
         wrapper.eq(Building::getStatus, 1);
         wrapper.orderByAsc(Building::getName);
         

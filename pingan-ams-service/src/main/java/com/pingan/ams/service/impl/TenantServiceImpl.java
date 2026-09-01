@@ -5,11 +5,14 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.pingan.ams.common.exception.BusinessException;
 import com.pingan.ams.common.result.ResultCode;
+import com.pingan.ams.common.utils.PasswordUtils;
 import com.pingan.ams.mapper.TenantMapper;
 import com.pingan.ams.model.dto.TenantDTO;
 import com.pingan.ams.model.entity.Room;
 import com.pingan.ams.model.entity.Tenant;
+import com.pingan.ams.model.entity.User;
 import com.pingan.ams.model.vo.TenantVO;
+import com.pingan.ams.mapper.UserMapper;
 import com.pingan.ams.service.RoomService;
 import com.pingan.ams.service.TenantService;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +33,7 @@ import java.util.stream.Collectors;
 public class TenantServiceImpl extends ServiceImpl<TenantMapper, Tenant> implements TenantService {
 
     private final RoomService roomService;
+    private final UserMapper userMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -49,6 +53,30 @@ public class TenantServiceImpl extends ServiceImpl<TenantMapper, Tenant> impleme
         this.save(tenant);
 
         log.info("创建租户成功，租户ID: {}, 名称: {}", tenant.getId(), tenant.getName());
+
+        // 创建管理员账号
+        if (tenantDTO.getAdminUsername() != null && !tenantDTO.getAdminUsername().trim().isEmpty()) {
+            // 检查用户名是否已存在
+            User existingUser = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                    .eq(User::getUsername, tenantDTO.getAdminUsername()));
+            if (existingUser != null) {
+                throw new BusinessException("管理员账号已存在");
+            }
+
+            User adminUser = new User();
+            adminUser.setTenantId(tenant.getId());
+            adminUser.setUsername(tenantDTO.getAdminUsername());
+            adminUser.setPassword(PasswordUtils.encode(tenantDTO.getAdminPassword() != null ? tenantDTO.getAdminPassword() : "admin123"));
+            adminUser.setRealName(tenantDTO.getAdminRealName());
+            adminUser.setPhone(tenantDTO.getContactPhone());
+            adminUser.setUserType(3); // 租户管理员
+            adminUser.setStatus(1);
+            adminUser.setAuthStatus(1);
+            userMapper.insert(adminUser);
+
+            log.info("创建租户管理员成功，租户ID: {}, 管理员账号: {}", tenant.getId(), tenantDTO.getAdminUsername());
+        }
+
         return tenant.getId();
     }
 

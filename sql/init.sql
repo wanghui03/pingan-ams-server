@@ -155,6 +155,7 @@ CREATE TABLE ams_bill (
     amount DECIMAL(10,2) NOT NULL COMMENT '账单金额',
     start_date DATE COMMENT '计费开始日期',
     end_date DATE COMMENT '计费结束日期',
+    bill_date DATE COMMENT '账单日期（生成日期）',
     due_date DATE COMMENT '应付日期',
     paid_amount DECIMAL(10,2) DEFAULT 0 COMMENT '实付金额',
     paid_time DATETIME COMMENT '支付时间',
@@ -249,7 +250,8 @@ INSERT INTO ams_sys_config (config_key, config_value, description) VALUES
 ('face_auth_enabled', 'false', '是否开启人脸识别实名认证'),
 ('contract_auto_expire', 'true', '合同到期自动处理'),
 ('bill_overdue_days', '7', '账单逾期天数阈值'),
-('system_name', '平安公寓管理系统', '系统名称');
+('system_name', '平安公寓管理系统', '系统名称'),
+('permission_enabled', 'false', '是否开启RBAC权限控制（初期建议关闭）');
 
 -- ========================================
 -- 插入默认租户

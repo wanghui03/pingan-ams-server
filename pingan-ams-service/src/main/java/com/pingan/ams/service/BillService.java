@@ -1,6 +1,7 @@
 package com.pingan.ams.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.pingan.ams.model.dto.BillDTO;
 import com.pingan.ams.model.entity.Bill;
 import com.pingan.ams.model.vo.BillVO;

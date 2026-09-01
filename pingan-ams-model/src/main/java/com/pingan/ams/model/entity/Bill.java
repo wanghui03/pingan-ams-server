@@ -70,6 +70,11 @@ public class Bill {
     private LocalDate endDate;
 
     /**
+     * 账单日期（生成日期）
+     */
+    private LocalDate billDate;
+
+    /**
      * 应付日期
      */
     private LocalDate dueDate;

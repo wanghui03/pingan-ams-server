@@ -36,6 +36,11 @@ public class LoginVO {
     private String username;
 
     /**
+     * 真实姓名
+     */
+    private String realName;
+
+    /**
      * 昵称
      */
     private String nickname;
@@ -54,4 +59,14 @@ public class LoginVO {
      * 过期时间
      */
     private LocalDateTime expireTime;
+
+    /**
+     * 用户角色列表
+     */
+    private java.util.List<String> roles;
+
+    /**
+     * 用户权限编码列表
+     */
+    private java.util.List<String> permissions;
 }

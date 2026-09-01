@@ -16,6 +16,7 @@ import com.pingan.ams.model.entity.User;
 import com.pingan.ams.model.vo.LoginVO;
 import com.pingan.ams.model.vo.TenantUserVO;
 import com.pingan.ams.model.vo.UserVO;
+import com.pingan.ams.service.RoleService;
 import com.pingan.ams.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 用户 Service 实现
@@ -32,6 +34,8 @@ import java.time.LocalDateTime;
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
+
+    private final RoleService roleService;
 
     @Override
     public LoginVO wxLogin(LoginDTO loginDTO) {
@@ -180,7 +184,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Page<User> pageParam = new Page<>(page, size);
 
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getTenantId, tenantId);
+        if (tenantId != null) {
+            wrapper.eq(User::getTenantId, tenantId);
+        }
         wrapper.in(User::getUserType, 2, 3); // 只查询员工和管理员
 
         if (keyword != null && !keyword.trim().isEmpty()) {
@@ -262,6 +268,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ResultCode.DATA_NOT_FOUND);
         }
 
+        // 不能删除自己
+        Long currentUserId = com.pingan.ams.common.utils.SecurityUtils.getCurrentUserId();
+        if (staffId.equals(currentUserId)) {
+            throw new BusinessException("不能删除当前登录用户");
+        }
+
         this.removeById(staffId);
     }
 
@@ -282,7 +294,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Page<User> pageParam = new Page<>(page, size);
 
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getTenantId, tenantId);
+        if (tenantId != null) {
+            wrapper.eq(User::getTenantId, tenantId);
+        }
         wrapper.eq(User::getUserType, 1); // 只查询租客
 
         if (keyword != null && !keyword.trim().isEmpty()) {
@@ -453,10 +467,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         loginVO.setTenantId(user.getTenantId());
         loginVO.setUserType(user.getUserType());
         loginVO.setUsername(user.getUsername());
+        loginVO.setRealName(user.getRealName());
         loginVO.setNickname(user.getNickname());
         loginVO.setAvatar(user.getAvatar());
         loginVO.setIsNewUser(isNewUser);
         loginVO.setExpireTime(LocalDateTime.now().plusDays(7));
+
+        // 获取用户角色和权限
+        try {
+            List<String> roles = roleService.getUserRoles(user.getId()).stream()
+                    .map(r -> r.getRoleCode())
+                    .toList();
+            List<String> permissions = roleService.getUserPermissionCodes(user.getId());
+            
+            loginVO.setRoles(roles);
+            loginVO.setPermissions(permissions);
+        } catch (Exception e) {
+            log.warn("获取用户角色权限失败: {}", e.getMessage());
+        }
 
         return loginVO;
     }

@@ -27,7 +27,7 @@ public class ContractVO {
 
     private String buildingName;
 
-    private ContractStatus status;
+    private Integer status;
 
     private String statusDesc;
 

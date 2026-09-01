@@ -32,5 +32,7 @@ public class BillDTO {
 
     private LocalDate dueDate;
 
+    private LocalDate billDate;
+
     private String remark;
 }

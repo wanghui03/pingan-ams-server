@@ -70,7 +70,9 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
         Page<Bill> pageParam = new Page<>(page, size);
 
         LambdaQueryWrapper<Bill> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Bill::getTenantId, tenantId);
+        if (tenantId != null) {
+            wrapper.eq(Bill::getTenantId, tenantId);
+        }
 
         if (status != null) {
             wrapper.eq(Bill::getStatus, status);
@@ -102,6 +104,11 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
 
         if (bill.getStatus() == BillStatus.PAID) {
             throw new BusinessException("账单已支付");
+        }
+
+        // 如果 paidAmount 为 0 或 null，使用账单总金额
+        if (paidAmount == null || paidAmount.compareTo(BigDecimal.ZERO) == 0) {
+            paidAmount = bill.getAmount();
         }
 
         bill.setStatus(BillStatus.PAID);
@@ -140,8 +147,8 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
         // 检查是否已存在下一期账单
         LambdaQueryWrapper<Bill> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Bill::getContractId, contract.getId())
-               .eq(Bill::getBillType, 1)
-               .eq(Bill::getStartDate, nextStartDate);
+                .eq(Bill::getBillType, 1)
+                .eq(Bill::getStartDate, nextStartDate);
         if (this.count(wrapper) > 0) {
             return;
         }
@@ -169,16 +176,6 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
 
         this.save(nextBill);
         log.info("账单 {} 已支付，已生成下一期账单 {}", paidBill.getBillNo(), nextBill.getBillNo());
-    }
-
-    private int getMonthsPerBill(Integer paymentMethod) {
-        return switch (paymentMethod) {
-            case 1 -> 1;  // 月付
-            case 2 -> 3;  // 季付
-            case 3 -> 6;  // 半年付
-            case 4 -> 12; // 年付
-            default -> 1;
-        };
     }
 
     @Override
@@ -259,8 +256,8 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
     public void autoGenerateBills() {
         // 查找所有生效中的合同
         List<Contract> activeContracts = contractMapper.selectList(
-            new LambdaQueryWrapper<Contract>()
-                .eq(Contract::getStatus, com.pingan.ams.model.enums.ContractStatus.ACTIVE)
+                new LambdaQueryWrapper<Contract>()
+                        .eq(Contract::getStatus, com.pingan.ams.model.enums.ContractStatus.ACTIVE)
         );
 
         for (Contract contract : activeContracts) {
@@ -300,9 +297,9 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
         LocalDate today = LocalDate.now();
         LambdaQueryWrapper<Bill> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Bill::getContractId, contract.getId())
-               .eq(Bill::getBillType, 1)
-               .le(Bill::getStartDate, today)
-               .gt(Bill::getEndDate, today);
+                .eq(Bill::getBillType, 1)
+                .le(Bill::getStartDate, today)
+                .gt(Bill::getEndDate, today);
         return this.count(wrapper) > 0;
     }
 
@@ -348,9 +345,9 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
 
         // 查找所有待支付但已逾期的账单
         List<Bill> overdueBills = this.list(
-            new LambdaQueryWrapper<Bill>()
-                .eq(Bill::getStatus, BillStatus.UNPAID)
-                .lt(Bill::getDueDate, today)
+                new LambdaQueryWrapper<Bill>()
+                        .eq(Bill::getStatus, BillStatus.UNPAID)
+                        .lt(Bill::getDueDate, today)
         );
 
         for (Bill bill : overdueBills) {
@@ -391,6 +388,7 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
 
         // 设置状态描述
         if (bill.getStatus() != null) {
+            vo.setStatus(bill.getStatus().getCode());
             vo.setStatusDesc(bill.getStatus().getDesc());
         }
 
@@ -417,6 +415,12 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
         User user = userMapper.selectById(bill.getUserId());
         if (user != null) {
             vo.setTenantName(user.getRealName() != null ? user.getRealName() : user.getNickname());
+        }
+
+        // 获取合同信息
+        Contract contract = contractMapper.selectById(bill.getContractId());
+        if (contract != null) {
+            vo.setContractNo(contract.getContractNo());
         }
 
         return vo;
