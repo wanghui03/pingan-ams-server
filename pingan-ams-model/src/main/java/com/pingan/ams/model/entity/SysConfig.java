@@ -16,11 +16,6 @@ public class SysConfig {
     private Long id;
 
     /**
-     * 租户ID（NULL表示全局配置）
-     */
-    private Long tenantId;
-
-    /**
      * 配置键
      */
     private String configKey;

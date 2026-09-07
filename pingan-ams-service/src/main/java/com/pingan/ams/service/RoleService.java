@@ -16,37 +16,37 @@ public interface RoleService extends IService<Role> {
     /**
      * 创建角色
      */
-    Long createRole(Long tenantId, RoleDTO roleDTO);
+    Long createRole(RoleDTO roleDTO);
 
     /**
      * 更新角色
      */
-    void updateRole(Long tenantId, Long roleId, RoleDTO roleDTO);
+    void updateRole(Long roleId, RoleDTO roleDTO);
 
     /**
      * 删除角色
      */
-    void deleteRole(Long tenantId, Long roleId);
+    void deleteRole(Long roleId);
 
     /**
      * 获取角色详情
      */
-    RoleVO getRoleDetail(Long tenantId, Long roleId);
+    RoleVO getRoleDetail(Long roleId);
 
     /**
      * 分页查询角色
      */
-    Page<RoleVO> listRoles(Long tenantId, Integer page, Integer size, String keyword);
+    Page<RoleVO> listRoles(Integer page, Integer size, String keyword);
 
     /**
      * 获取所有角色（下拉选择）
      */
-    List<RoleVO> getAllRoles(Long tenantId);
+    List<RoleVO> getAllRoles();
 
     /**
      * 分配角色权限
      */
-    void assignPermissions(Long tenantId, Long roleId, List<Long> permissionIds);
+    void assignPermissions(Long roleId, List<Long> permissionIds);
 
     /**
      * 为用户分配角色

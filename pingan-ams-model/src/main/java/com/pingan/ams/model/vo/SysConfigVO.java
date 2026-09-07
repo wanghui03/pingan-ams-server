@@ -12,10 +12,6 @@ public class SysConfigVO {
 
     private Long id;
 
-    private Long tenantId;
-
-    private String tenantName;
-
     private String configKey;
 
     private String configValue;

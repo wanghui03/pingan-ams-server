@@ -58,4 +58,11 @@ public interface NotificationService extends IService<Notification> {
      * @return 未读数量
      */
     Long getUnreadCount(Long userId);
+
+    /**
+     * 发布系统公告（发送给租户下所有用户）
+     * @param tenantId 租户ID
+     * @param dto 通知信息（userId会被忽略，会发给所有用户）
+     */
+    void publishAnnouncement(Long tenantId, NotificationDTO dto);
 }

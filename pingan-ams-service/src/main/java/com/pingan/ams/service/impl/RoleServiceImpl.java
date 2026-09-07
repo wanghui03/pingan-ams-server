@@ -13,6 +13,8 @@ import com.pingan.ams.service.RoleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,25 +35,21 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Long createRole(Long tenantId, RoleDTO roleDTO) {
-        // 检查角色编码是否已存在
+    public Long createRole(RoleDTO roleDTO) {
         LambdaQueryWrapper<Role> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Role::getTenantId, tenantId)
-                .eq(Role::getRoleCode, roleDTO.getRoleCode());
+        wrapper.eq(Role::getRoleCode, roleDTO.getRoleCode());
         if (this.count(wrapper) > 0) {
             throw new BusinessException("角色编码已存在");
         }
 
         Role role = new Role();
         BeanUtils.copyProperties(roleDTO, role);
-        role.setTenantId(tenantId);
         role.setStatus(roleDTO.getStatus() != null ? roleDTO.getStatus() : 1);
 
         this.save(role);
 
-        // 分配权限
         if (roleDTO.getPermissionIds() != null && !roleDTO.getPermissionIds().isEmpty()) {
-            assignPermissions(tenantId, role.getId(), roleDTO.getPermissionIds());
+            assignPermissions(role.getId(), roleDTO.getPermissionIds());
         }
 
         return role.getId();
@@ -59,13 +57,14 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void updateRole(Long tenantId, Long roleId, RoleDTO roleDTO) {
-        Role role = this.getRoleByIdAndTenantId(roleId, tenantId);
+    public void updateRole(Long roleId, RoleDTO roleDTO) {
+        Role role = this.getById(roleId);
+        if (role == null) {
+            throw new BusinessException(ResultCode.DATA_NOT_FOUND);
+        }
 
-        // 检查角色编码是否已被其他角色使用
         LambdaQueryWrapper<Role> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Role::getTenantId, tenantId)
-                .eq(Role::getRoleCode, roleDTO.getRoleCode())
+        wrapper.eq(Role::getRoleCode, roleDTO.getRoleCode())
                 .ne(Role::getId, roleId);
         if (this.count(wrapper) > 0) {
             throw new BusinessException("角色编码已存在");
@@ -74,49 +73,48 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
         BeanUtils.copyProperties(roleDTO, role);
         this.updateById(role);
 
-        // 更新权限
         if (roleDTO.getPermissionIds() != null) {
-            assignPermissions(tenantId, roleId, roleDTO.getPermissionIds());
+            assignPermissions(roleId, roleDTO.getPermissionIds());
         }
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void deleteRole(Long tenantId, Long roleId) {
-        Role role = this.getRoleByIdAndTenantId(roleId, tenantId);
+    @CacheEvict(value = "userPermissions", allEntries = true)
+    public void deleteRole(Long roleId) {
+        Role role = this.getById(roleId);
+        if (role == null) {
+            throw new BusinessException(ResultCode.DATA_NOT_FOUND);
+        }
 
-        // 检查是否有用户使用该角色
         Long userCount = baseMapper.countUsersByRoleId(roleId);
         if (userCount > 0) {
             throw new BusinessException("该角色下还有 " + userCount + " 个用户，无法删除");
         }
 
         this.removeById(roleId);
-
-        // 删除角色权限关联
         rolePermissionMapper.deleteByRoleId(roleId);
     }
 
     @Override
-    public RoleVO getRoleDetail(Long tenantId, Long roleId) {
-        Role role = this.getRoleByIdAndTenantId(roleId, tenantId);
+    public RoleVO getRoleDetail(Long roleId) {
+        Role role = this.getById(roleId);
+        if (role == null) {
+            throw new BusinessException(ResultCode.DATA_NOT_FOUND);
+        }
         return convertToVO(role);
     }
 
     @Override
-    public Page<RoleVO> listRoles(Long tenantId, Integer page, Integer size, String keyword) {
+    public Page<RoleVO> listRoles(Integer page, Integer size, String keyword) {
         Page<Role> pageParam = new Page<>(page, size);
 
         LambdaQueryWrapper<Role> wrapper = new LambdaQueryWrapper<>();
-        // 查询全局角色（tenant_id IS NULL）或当前租户的角色
-        wrapper.and(w -> w.isNull(Role::getTenantId).or().eq(Role::getTenantId, tenantId));
-
         if (keyword != null && !keyword.isEmpty()) {
             wrapper.like(Role::getRoleName, keyword)
                     .or()
                     .like(Role::getRoleCode, keyword);
         }
-
         wrapper.orderByAsc(Role::getSortOrder);
 
         Page<Role> rolePage = this.page(pageParam, wrapper);
@@ -131,11 +129,9 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
     }
 
     @Override
-    public List<RoleVO> getAllRoles(Long tenantId) {
+    public List<RoleVO> getAllRoles() {
         LambdaQueryWrapper<Role> wrapper = new LambdaQueryWrapper<>();
-        // 查询全局角色（tenant_id IS NULL）或当前租户的角色
-        wrapper.and(w -> w.isNull(Role::getTenantId).or().eq(Role::getTenantId, tenantId))
-                .eq(Role::getStatus, 1)
+        wrapper.eq(Role::getStatus, 1)
                 .orderByAsc(Role::getSortOrder);
 
         return this.list(wrapper).stream()
@@ -145,11 +141,10 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void assignPermissions(Long tenantId, Long roleId, List<Long> permissionIds) {
-        // 先删除原有权限
+    @CacheEvict(value = "userPermissions", allEntries = true)
+    public void assignPermissions(Long roleId, List<Long> permissionIds) {
         rolePermissionMapper.deleteByRoleId(roleId);
 
-        // 添加新权限
         if (permissionIds != null && !permissionIds.isEmpty()) {
             for (Long permissionId : permissionIds) {
                 RolePermission rp = new RolePermission();
@@ -162,11 +157,10 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = "userPermissions", allEntries = true)
     public void assignUserRoles(Long userId, List<Long> roleIds) {
-        // 先删除原有角色
         userRoleMapper.deleteByUserId(userId);
 
-        // 添加新角色
         if (roleIds != null && !roleIds.isEmpty()) {
             for (Long roleId : roleIds) {
                 UserRole ur = new UserRole();
@@ -186,33 +180,19 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
     }
 
     @Override
+    @Cacheable(value = "userPermissions", key = "#userId")
     public List<String> getUserPermissionCodes(Long userId) {
+        log.debug("查询用户 {} 的权限（未命中缓存）", userId);
         return permissionMapper.selectPermissionCodesByUserId(userId);
-    }
-
-    private Role getRoleByIdAndTenantId(Long roleId, Long tenantId) {
-        Role role = this.getById(roleId);
-        if (role == null) {
-            throw new BusinessException(ResultCode.DATA_NOT_FOUND);
-        }
-        // 超级管理员可以管理所有角色，租户管理员只能管理自己的角色
-        if (role.getTenantId() != null && !role.getTenantId().equals(tenantId)) {
-            throw new BusinessException(ResultCode.NO_PERMISSION);
-        }
-        return role;
     }
 
     private RoleVO convertToVO(Role role) {
         RoleVO vo = new RoleVO();
         BeanUtils.copyProperties(role, vo);
 
-        // 状态描述
         vo.setStatusDesc(role.getStatus() == 1 ? "启用" : "禁用");
-
-        // 关联用户数
         vo.setUserCount(baseMapper.countUsersByRoleId(role.getId()));
 
-        // 关联权限ID列表
         List<Permission> permissions = permissionMapper.selectPermissionsByRoleId(role.getId());
         vo.setPermissionIds(permissions.stream()
                 .map(Permission::getId)

@@ -30,16 +30,14 @@ public class RoleController {
     @Log(module = "角色管理", operation = "创建", description = "创建新角色")
     @PostMapping
     public Result<Long> createRole(@Valid @RequestBody RoleDTO roleDTO) {
-        Long tenantId = SecurityUtils.getCurrentTenantId();
-        return Result.success(roleService.createRole(tenantId, roleDTO));
+        return Result.success(roleService.createRole(roleDTO));
     }
 
     @Operation(summary = "更新角色")
     @Log(module = "角色管理", operation = "更新", description = "更新角色信息")
     @PutMapping("/{roleId}")
     public Result<Void> updateRole(@PathVariable Long roleId, @Valid @RequestBody RoleDTO roleDTO) {
-        Long tenantId = SecurityUtils.getCurrentTenantId();
-        roleService.updateRole(tenantId, roleId, roleDTO);
+        roleService.updateRole(roleId, roleDTO);
         return Result.success();
     }
 
@@ -47,16 +45,14 @@ public class RoleController {
     @Log(module = "角色管理", operation = "删除", description = "删除角色")
     @DeleteMapping("/{roleId}")
     public Result<Void> deleteRole(@PathVariable Long roleId) {
-        Long tenantId = SecurityUtils.getCurrentTenantId();
-        roleService.deleteRole(tenantId, roleId);
+        roleService.deleteRole(roleId);
         return Result.success();
     }
 
     @Operation(summary = "获取角色详情")
     @GetMapping("/{roleId}")
     public Result<RoleVO> getRoleDetail(@PathVariable Long roleId) {
-        Long tenantId = SecurityUtils.getCurrentTenantId();
-        return Result.success(roleService.getRoleDetail(tenantId, roleId));
+        return Result.success(roleService.getRoleDetail(roleId));
     }
 
     @Operation(summary = "分页查询角色")
@@ -65,15 +61,13 @@ public class RoleController {
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size,
             @RequestParam(required = false) String keyword) {
-        Long tenantId = SecurityUtils.getCurrentTenantId();
-        return Result.success(roleService.listRoles(tenantId, page, size, keyword));
+        return Result.success(roleService.listRoles(page, size, keyword));
     }
 
     @Operation(summary = "获取所有角色（下拉选择）")
     @GetMapping("/all")
     public Result<List<RoleVO>> getAllRoles() {
-        Long tenantId = SecurityUtils.getCurrentTenantId();
-        return Result.success(roleService.getAllRoles(tenantId));
+        return Result.success(roleService.getAllRoles());
     }
 
     @Operation(summary = "分配角色权限")
@@ -82,8 +76,7 @@ public class RoleController {
     public Result<Void> assignPermissions(
             @PathVariable Long roleId,
             @RequestBody List<Long> permissionIds) {
-        Long tenantId = SecurityUtils.getCurrentTenantId();
-        roleService.assignPermissions(tenantId, roleId, permissionIds);
+        roleService.assignPermissions(roleId, permissionIds);
         return Result.success();
     }
 

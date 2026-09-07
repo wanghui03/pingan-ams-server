@@ -14,11 +14,6 @@ public class RoleVO {
     private Long id;
 
     /**
-     * 租户ID
-     */
-    private Long tenantId;
-
-    /**
      * 角色名称
      */
     private String roleName;

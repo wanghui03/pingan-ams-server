@@ -6,29 +6,34 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 角色表
+ * 字典表
  */
 @Data
-@TableName("ams_role")
-public class Role {
+@TableName("ams_dict")
+public class Dict {
 
     @TableId(type = IdType.AUTO)
     private Long id;
 
     /**
-     * 角色名称
+     * 字典类型（如：room_status, contract_status）
      */
-    private String roleName;
+    private String dictType;
 
     /**
-     * 角色编码
+     * 字典编码（如：0, 1, 2）
      */
-    private String roleCode;
+    private String dictCode;
 
     /**
-     * 角色描述
+     * 字典名称（如：空置, 已预订, 已入住）
      */
-    private String description;
+    private String dictName;
+
+    /**
+     * 排序
+     */
+    private Integer sortOrder;
 
     /**
      * 状态：0-禁用 1-启用
@@ -36,16 +41,19 @@ public class Role {
     private Integer status;
 
     /**
-     * 排序
+     * 备注
      */
-    private Integer sortOrder;
+    private String remark;
 
+    /**
+     * 创建时间
+     */
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
+    /**
+     * 更新时间
+     */
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updateTime;
-
-    @TableLogic
-    private Integer deleted;
 }

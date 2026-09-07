@@ -82,4 +82,13 @@ public class NotificationController {
         Long count = notificationService.getUnreadCount(userId);
         return Result.success(count);
     }
+
+    @Operation(summary = "发布系统公告")
+    @PostMapping("/announcement")
+    @RequirePermission("notification:create")
+    public Result<Void> publishAnnouncement(@RequestBody NotificationDTO dto) {
+        Long tenantId = SecurityUtils.getQueryTenantId();
+        notificationService.publishAnnouncement(tenantId, dto);
+        return Result.success();
+    }
 }

@@ -65,4 +65,10 @@ public interface ContractService extends IService<Contract> {
      * 自动处理到期合同
      */
     void processExpiredContracts();
+
+    /**
+     * 发送合同到期提醒（定时任务调用）
+     * 提前30天提醒生效中合同的租客
+     */
+    void sendContractExpiryReminders();
 }

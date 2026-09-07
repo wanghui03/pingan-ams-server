@@ -38,6 +38,7 @@ public class ContractServiceImpl extends ServiceImpl<ContractMapper, Contract> i
     private final RoomMapper roomMapper;
     private final BuildingMapper buildingMapper;
     private final BillMapper billMapper;
+    private final NotificationMapper notificationMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -203,26 +204,46 @@ public class ContractServiceImpl extends ServiceImpl<ContractMapper, Contract> i
     private void generateFirstBill(Contract contract) {
         int monthsPerBill = getMonthsPerBill(contract.getPaymentMethod());
 
-        Bill bill = new Bill();
-        bill.setTenantId(contract.getTenantId());
-        bill.setBillNo(generateBillNo());
-        bill.setContractId(contract.getId());
-        bill.setUserId(contract.getUserId());
-        bill.setRoomId(contract.getRoomId());
-        bill.setBillType(1); // 租金
-        bill.setStatus(BillStatus.UNPAID);
-        bill.setAmount(contract.getMonthlyRent().multiply(BigDecimal.valueOf(monthsPerBill)));
-        bill.setStartDate(contract.getStartDate());
-        bill.setEndDate(contract.getStartDate().plusMonths(monthsPerBill));
-        bill.setBillDate(LocalDate.now());
-        bill.setDueDate(contract.getStartDate().plusDays(5)); // 5天内支付
-        bill.setPaidAmount(BigDecimal.ZERO);
+        // 生成租金账单
+        Bill rentBill = new Bill();
+        rentBill.setTenantId(contract.getTenantId());
+        rentBill.setBillNo(generateBillNo());
+        rentBill.setContractId(contract.getId());
+        rentBill.setUserId(contract.getUserId());
+        rentBill.setRoomId(contract.getRoomId());
+        rentBill.setBillType(1); // 租金
+        rentBill.setStatus(BillStatus.UNPAID);
+        rentBill.setAmount(contract.getMonthlyRent().multiply(BigDecimal.valueOf(monthsPerBill)));
+        rentBill.setStartDate(contract.getStartDate());
+        rentBill.setEndDate(contract.getStartDate().plusMonths(monthsPerBill));
+        rentBill.setBillDate(LocalDate.now());
+        rentBill.setDueDate(contract.getStartDate().plusDays(5)); // 5天内支付
+        rentBill.setPaidAmount(BigDecimal.ZERO);
+        billMapper.insert(rentBill);
 
-        // 保存到数据库（需要通过 ContractService 调用 BillService）
-        // 这里直接操作 mapper 避免循环依赖
-        billMapper.insert(bill);
+        // 生成押金账单（如果押金大于0）
+        if (contract.getDeposit() != null && contract.getDeposit().compareTo(BigDecimal.ZERO) > 0) {
+            Bill depositBill = new Bill();
+            depositBill.setTenantId(contract.getTenantId());
+            depositBill.setBillNo(generateBillNo());
+            depositBill.setContractId(contract.getId());
+            depositBill.setUserId(contract.getUserId());
+            depositBill.setRoomId(contract.getRoomId());
+            depositBill.setBillType(3); // 押金
+            depositBill.setStatus(BillStatus.UNPAID);
+            depositBill.setAmount(contract.getDeposit());
+            depositBill.setStartDate(contract.getStartDate());
+            depositBill.setEndDate(contract.getEndDate());
+            depositBill.setBillDate(LocalDate.now());
+            depositBill.setDueDate(contract.getStartDate().plusDays(5)); // 5天内支付
+            depositBill.setPaidAmount(BigDecimal.ZERO);
+            billMapper.insert(depositBill);
 
-        log.info("合同 {} 审核通过，已生成首期账单 {}", contract.getContractNo(), bill.getBillNo());
+            log.info("合同 {} 审核通过，已生成首期租金账单 {} 和押金账单 {}", 
+                    contract.getContractNo(), rentBill.getBillNo(), depositBill.getBillNo());
+        } else {
+            log.info("合同 {} 审核通过，已生成首期租金账单 {}", contract.getContractNo(), rentBill.getBillNo());
+        }
     }
 
     private int getMonthsPerBill(Integer paymentMethod) {
@@ -285,6 +306,56 @@ public class ContractServiceImpl extends ServiceImpl<ContractMapper, Contract> i
             }
 
             log.info("合同 {} 已到期，状态已更新", contract.getContractNo());
+        }
+    }
+
+    @Override
+    public void sendContractExpiryReminders() {
+        LocalDate today = LocalDate.now();
+        LocalDate reminderDate = today.plusDays(30);
+
+        // 查找30天内到期的生效中合同
+        LambdaQueryWrapper<Contract> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Contract::getStatus, ContractStatus.ACTIVE)
+                .ge(Contract::getEndDate, today)
+                .le(Contract::getEndDate, reminderDate);
+
+        List<Contract> expiringContracts = this.list(wrapper);
+
+        for (Contract contract : expiringContracts) {
+            User user = userMapper.selectById(contract.getUserId());
+            if (user == null) continue;
+
+            String userName = user.getRealName() != null ? user.getRealName() : user.getNickname();
+            long daysLeft = ChronoUnit.DAYS.between(today, contract.getEndDate());
+
+            // 获取房间信息
+            Room room = roomMapper.selectById(contract.getRoomId());
+            String roomInfo = "";
+            if (room != null) {
+                Building building = buildingMapper.selectById(room.getBuildingId());
+                roomInfo = (building != null ? building.getName() : "") + room.getRoomNo();
+            }
+
+            Notification notification = new Notification();
+            notification.setTenantId(contract.getTenantId());
+            notification.setUserId(contract.getUserId());
+            notification.setTitle("合同到期提醒");
+            notification.setContent(String.format(
+                    "尊敬的%s，您在%s的合同（编号：%s）将于%s到期，剩余%d天。如需续租请尽快联系管理员。",
+                    userName,
+                    roomInfo,
+                    contract.getContractNo(),
+                    contract.getEndDate(),
+                    daysLeft
+            ));
+            notification.setType(2); // 合同类型
+            notification.setBizType("contract");
+            notification.setBizId(contract.getId());
+            notification.setIsRead(0);
+
+            notificationMapper.insert(notification);
+            log.info("已发送合同到期提醒：合同 {}，剩余 {} 天", contract.getContractNo(), daysLeft);
         }
     }
 

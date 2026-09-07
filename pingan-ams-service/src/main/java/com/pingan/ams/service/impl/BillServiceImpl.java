@@ -36,6 +36,7 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
     private final UserMapper userMapper;
     private final RoomMapper roomMapper;
     private final BuildingMapper buildingMapper;
+    private final NotificationMapper notificationMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -66,7 +67,7 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
     }
 
     @Override
-    public Page<BillVO> listBills(Long tenantId, Integer page, Integer size, Integer status, Integer billType, Long userId) {
+    public Page<BillVO> listBills(Long tenantId, Integer page, Integer size, Integer status, Integer billType, Long userId, Long roomId) {
         Page<Bill> pageParam = new Page<>(page, size);
 
         LambdaQueryWrapper<Bill> wrapper = new LambdaQueryWrapper<>();
@@ -82,6 +83,9 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
         }
         if (userId != null) {
             wrapper.eq(Bill::getUserId, userId);
+        }
+        if (roomId != null) {
+            wrapper.eq(Bill::getRoomId, roomId);
         }
 
         wrapper.orderByDesc(Bill::getCreateTime);
@@ -355,6 +359,91 @@ public class BillServiceImpl extends ServiceImpl<BillMapper, Bill> implements Bi
             this.updateById(bill);
             log.info("账单 {} 已逾期，状态已更新", bill.getBillNo());
         }
+    }
+
+    @Override
+    public void sendBillDueReminders() {
+        LocalDate today = LocalDate.now();
+        LocalDate reminderDate = today.plusDays(3);
+
+        // 查找3天内到期的待支付账单
+        LambdaQueryWrapper<Bill> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Bill::getStatus, BillStatus.UNPAID)
+                .ge(Bill::getDueDate, today)
+                .le(Bill::getDueDate, reminderDate);
+
+        List<Bill> dueBills = this.list(wrapper);
+
+        for (Bill bill : dueBills) {
+            // 获取租客信息
+            User user = userMapper.selectById(bill.getUserId());
+            if (user == null) continue;
+
+            String userName = user.getRealName() != null ? user.getRealName() : user.getNickname();
+            long daysLeft = ChronoUnit.DAYS.between(today, bill.getDueDate());
+
+            // 创建通知
+            Notification notification = new Notification();
+            notification.setTenantId(bill.getTenantId());
+            notification.setUserId(bill.getUserId());
+            notification.setTitle("账单到期提醒");
+            notification.setContent(String.format(
+                    "尊敬的%s，您有一笔%s元的%s账单将于%s到期，请及时支付。",
+                    userName,
+                    bill.getAmount(),
+                    getBillTypeDesc(bill.getBillType()),
+                    bill.getDueDate()
+            ));
+            notification.setType(1); // 账单类型
+            notification.setBizType("bill");
+            notification.setBizId(bill.getId());
+            notification.setIsRead(0);
+
+            notificationMapper.insert(notification);
+            log.info("已发送账单到期提醒：账单 {}，剩余 {} 天", bill.getBillNo(), daysLeft);
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void sendBillReminder(Long tenantId, Long billId) {
+        Bill bill = this.getBillByIdAndTenantId(billId, tenantId);
+
+        if (bill.getStatus() == BillStatus.PAID) {
+            throw new BusinessException("账单已支付，无需提醒");
+        }
+        if (bill.getStatus() == BillStatus.CANCELLED) {
+            throw new BusinessException("账单已取消，无需提醒");
+        }
+
+        // 获取租客信息
+        User user = userMapper.selectById(bill.getUserId());
+        if (user == null) {
+            throw new BusinessException("租客信息不存在");
+        }
+
+        String userName = user.getRealName() != null ? user.getRealName() : user.getNickname();
+
+        // 创建通知
+        Notification notification = new Notification();
+        notification.setTenantId(tenantId);
+        notification.setUserId(bill.getUserId());
+        notification.setTitle("账单支付提醒");
+        notification.setContent(String.format(
+                "尊敬的%s，您有一笔%s元的%s账单（账单号：%s），截止日期为%s，请及时支付。",
+                userName,
+                bill.getAmount(),
+                getBillTypeDesc(bill.getBillType()),
+                bill.getBillNo(),
+                bill.getDueDate()
+        ));
+        notification.setType(1);
+        notification.setBizType("bill");
+        notification.setBizId(bill.getId());
+        notification.setIsRead(0);
+
+        notificationMapper.insert(notification);
+        log.info("已手动发送账单提醒：账单 {}", bill.getBillNo());
     }
 
     private int getMonthsPerBill(Integer paymentMethod) {

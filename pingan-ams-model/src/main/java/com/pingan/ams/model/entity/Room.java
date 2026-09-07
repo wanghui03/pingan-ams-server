@@ -106,6 +106,26 @@ public class Room {
     private BigDecimal latitude;
 
     /**
+     * 水费单价（元/吨）
+     */
+    private BigDecimal waterPrice;
+
+    /**
+     * 电费单价（元/度）
+     */
+    private BigDecimal electricityPrice;
+
+    /**
+     * 上次水表读数
+     */
+    private BigDecimal lastWaterReading;
+
+    /**
+     * 上次电表读数
+     */
+    private BigDecimal lastElectricityReading;
+
+    /**
      * 创建时间
      */
     @TableField(fill = FieldFill.INSERT)

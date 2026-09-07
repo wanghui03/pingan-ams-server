@@ -15,22 +15,17 @@ public interface SysConfigService extends IService<SysConfig> {
     /**
      * 获取配置列表
      */
-    List<SysConfigVO> listConfigs(Long tenantId);
+    List<SysConfigVO> listConfigs();
 
     /**
      * 获取配置值
-     */
-    String getConfigValue(String configKey, Long tenantId);
-
-    /**
-     * 获取配置值（全局）
      */
     String getConfigValue(String configKey);
 
     /**
      * 保存或更新配置
      */
-    void saveOrUpdateConfig(Long tenantId, SysConfigDTO dto);
+    void saveOrUpdateConfig(SysConfigDTO dto);
 
     /**
      * 删除配置
@@ -40,5 +35,5 @@ public interface SysConfigService extends IService<SysConfig> {
     /**
      * 获取布尔配置
      */
-    boolean getBooleanConfig(String configKey, Long tenantId, boolean defaultValue);
+    boolean getBooleanConfig(String configKey, boolean defaultValue);
 }

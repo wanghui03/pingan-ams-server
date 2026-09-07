@@ -54,9 +54,10 @@ public class BillController {
             @RequestParam(defaultValue = "10") Integer size,
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) Integer billType,
-            @RequestParam(required = false) Long userId) {
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) Long roomId) {
         Long tenantId = SecurityUtils.getQueryTenantId();
-        Page<BillVO> pageResult = billService.listBills(tenantId, page, size, status, billType, userId);
+        Page<BillVO> pageResult = billService.listBills(tenantId, page, size, status, billType, userId, roomId);
         return Result.success(pageResult);
     }
 
@@ -98,6 +99,16 @@ public class BillController {
     @PostMapping("/generate-rent-bills")
     public Result<Void> generateRentBills(@RequestParam Long contractId) {
         billService.generateRentBills(contractId);
+        return Result.success();
+    }
+
+    @Log(module = "账单管理", operation = "发送提醒", description = "手动发送账单支付提醒")
+    @RequirePermission("bill:pay")
+    @Operation(summary = "手动发送账单提醒")
+    @PostMapping("/{billId}/remind")
+    public Result<Void> sendBillReminder(@PathVariable Long billId) {
+        Long tenantId = SecurityUtils.getQueryTenantId();
+        billService.sendBillReminder(tenantId, billId);
         return Result.success();
     }
 }

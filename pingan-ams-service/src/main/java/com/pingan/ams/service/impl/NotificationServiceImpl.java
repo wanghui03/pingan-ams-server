@@ -12,8 +12,9 @@ import com.pingan.ams.model.entity.Notification;
 import com.pingan.ams.model.entity.User;
 import com.pingan.ams.model.vo.NotificationVO;
 import com.pingan.ams.service.NotificationService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,11 +25,12 @@ import java.util.stream.Collectors;
 /**
  * 站内通知 Service 实现
  */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class NotificationServiceImpl extends ServiceImpl<NotificationMapper, Notification> implements NotificationService {
 
-    @Autowired
-    private UserMapper userMapper;
+    private final UserMapper userMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -111,6 +113,32 @@ public class NotificationServiceImpl extends ServiceImpl<NotificationMapper, Not
     @Override
     public Long getUnreadCount(Long userId) {
         return baseMapper.countUnread(userId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void publishAnnouncement(Long tenantId, NotificationDTO dto) {
+        // 查询租户下所有用户（排除超管 userType=0）
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getTenantId, tenantId)
+                .ne(User::getUserType, 0) // 排除超级管理员
+                .eq(User::getStatus, 1); // 只发给启用状态的用户
+
+        List<User> users = userMapper.selectList(wrapper);
+
+        for (User user : users) {
+            Notification notification = new Notification();
+            notification.setTenantId(tenantId);
+            notification.setUserId(user.getId());
+            notification.setTitle(dto.getTitle());
+            notification.setContent(dto.getContent());
+            notification.setType(4); // 系统公告类型
+            notification.setIsRead(0);
+
+            this.save(notification);
+        }
+
+        log.info("已发布系统公告，发送给 {} 个用户", users.size());
     }
 
     /**

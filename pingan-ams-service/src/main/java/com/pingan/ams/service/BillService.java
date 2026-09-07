@@ -26,7 +26,7 @@ public interface BillService extends IService<Bill> {
     /**
      * 分页查询账单
      */
-    Page<BillVO> listBills(Long tenantId, Integer page, Integer size, Integer status, Integer billType, Long userId);
+    Page<BillVO> listBills(Long tenantId, Integer page, Integer size, Integer status, Integer billType, Long userId, Long roomId);
 
     /**
      * 标记账单已支付
@@ -57,4 +57,17 @@ public interface BillService extends IService<Bill> {
      * 处理逾期账单（定时任务调用）
      */
     void processOverdueBills();
+
+    /**
+     * 发送账单到期提醒（定时任务调用）
+     * 提前3天提醒待支付账单的租客
+     */
+    void sendBillDueReminders();
+
+    /**
+     * 手动发送账单提醒
+     * @param tenantId 租户ID
+     * @param billId 账单ID
+     */
+    void sendBillReminder(Long tenantId, Long billId);
 }

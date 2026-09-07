@@ -39,7 +39,7 @@ public class PermissionAspect {
     @Before("@annotation(com.pingan.ams.common.annotation.RequirePermission)")
     public void checkPermission(JoinPoint joinPoint) {
         // 检查是否开启权限控制
-        boolean permissionEnabled = sysConfigService.getBooleanConfig(PERMISSION_ENABLED_KEY, null, false);
+        boolean permissionEnabled = sysConfigService.getBooleanConfig(PERMISSION_ENABLED_KEY, false);
         if (!permissionEnabled) {
             log.debug("权限控制已关闭，跳过权限校验");
             return;

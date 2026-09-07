@@ -26,7 +26,7 @@ public class SysConfigController {
     @Operation(summary = "获取配置列表")
     @GetMapping("/list")
     public Result<List<SysConfigVO>> list() {
-        List<SysConfigVO> list = sysConfigService.listConfigs(null);
+        List<SysConfigVO> list = sysConfigService.listConfigs();
         return Result.success(list);
     }
 
@@ -40,7 +40,7 @@ public class SysConfigController {
     @Operation(summary = "保存配置")
     @PostMapping
     public Result<Void> save(@Valid @RequestBody SysConfigDTO dto) {
-        sysConfigService.saveOrUpdateConfig(null, dto);
+        sysConfigService.saveOrUpdateConfig(dto);
         return Result.success(null);
     }
 
